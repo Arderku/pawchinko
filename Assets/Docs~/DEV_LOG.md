@@ -27,17 +27,17 @@ Assets/Scripts/
   Pawchinko.asmdef
   Core/
     EventSystem.cs   - generic pub/sub, singleton
-    Events.cs        - BattleStartedEvent, RoundStartedEvent, DropRequestedEvent,
-                       BallSettledEvent, TurnEndedEvent
+    Events.cs        - BattleStartedEvent, RoundStartedEvent (sideless),
+                       DropRequestedEvent (sideless), BallSettledEvent
     Side.cs          - enum { Player, Enemy }
   Managers/
     GameManager.cs   - singleton, owns sub-managers, runs Initialize chain
-    BattleManager.cs - turn/round state machine
+    BattleManager.cs - round state machine, simultaneous both-sides drop
     BoardManager.cs  - holds per-side BallSpawner refs
     BallManager.cs   - assigns ball IDs, routes Settled callbacks to events
   UI/
     UIManager.cs     - owns BattleHud
-    BattleHud.cs     - START + DROP buttons, round counter
+    BattleHud.cs     - Start + Exit + single Drop (interactable toggle), round counter
   Gameplay/Battle/
     Ball.cs          - Rigidbody/SphereCollider component, Settled event
     Peg.cs           - row/col data marker
@@ -71,7 +71,7 @@ Managers (root)
   BoardManager
   BallManager
   UIManager
-Main Camera        (0, 0, -14), FOV 60, sky-blue clear color
+Main Camera        (0, 0, -19.75), FOV 25, sky-blue clear color
 Directional Light  (existing)
 Global Volume      (existing URP volume)
 Boards
@@ -81,10 +81,11 @@ Boards
   EnemyBoard       (+3.5, 0, 0)  red tint, mirrored, EnemyBall_Mat override
 Canvas (Screen Space - Overlay, 1920x1080 ScaleWithScreenSize)
   BattleHud
-    RoundCounterText (TMP, top-center)
-    StartButton      (center, yellow)
-    DropPlayerButton (bottom-left, blue, hidden)
-    DropEnemyButton  (bottom-right, red, hidden)
+    RoundCounterText (TMP, top-center, anchor (0.5,1) y=-40)
+    TempDevHeader    (TMP, center, "Temp Dev Buttons", italic 24pt, y=+170)
+    StartButton      (center, yellow,        y=+90, 280x80)
+    ExitButton       (center, red,           y=  0, 280x80, stops Play / Application.Quit)
+    DropButton       (center, green,         y=-90, 280x80, interactable toggles per round)
 EventSystem        (UnityEngine.EventSystems - existing UI input)
 ```
 
@@ -94,10 +95,10 @@ EventSystem        (UnityEngine.EventSystems - existing UI input)
 |---|---|---|---|
 | Event bus (pub/sub) | MVP | `Core/EventSystem.cs`, `Core/Events.cs` | [AI_AGENT_CODE_GUIDE](Desgin/AI_AGENT_CODE_GUIDE.md) Section 9 |
 | Manager bootstrap | MVP | `Managers/GameManager.cs` | [AI_AGENT_CODE_GUIDE](Desgin/AI_AGENT_CODE_GUIDE.md) Section 7 |
-| Turn-based battle flow (1 ball/side, alternating, looping) | MVP | `Managers/BattleManager.cs` | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 5 (subset) |
+| Round-based battle flow (1 ball/side, simultaneous drop, looping) | MVP | `Managers/BattleManager.cs` | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 5 (subset) |
 | Physics drop (Rigidbody ball, peg field, wall, slot trigger) | MVP | `Gameplay/Battle/*.cs`, `Ball.prefab`, layer matrix | [PHYSICS_DROP_GUIDE](Desgin/PHYSICS_DROP_GUIDE.md) Sections 2-7 |
 | Board procedural geometry (in-editor build) | MVP | Not codified yet - currently baked by MCP scene-build pass | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 12 |
-| HUD (Start + per-side Drop + round counter) | MVP | `UI/UIManager.cs`, `UI/BattleHud.cs` | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 17 (subset) |
+| HUD (temp dev: Start + Exit + Drop, round counter) | MVP | `UI/UIManager.cs`, `UI/BattleHud.cs` | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 17 (subset) |
 | Modifier hook (`IBallModifier`) | NOT STARTED | - | [PHYSICS_DROP_GUIDE](Desgin/PHYSICS_DROP_GUIDE.md) Section 9 |
 | Scoring | NOT STARTED | - | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 14 |
 | Energy | NOT STARTED | - | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 7 |
@@ -151,6 +152,45 @@ EventSystem        (UnityEngine.EventSystems - existing UI input)
 ## Change log
 
 (Reverse chronological. One entry per agent session.)
+
+### 2026-04-21 - Cursor agent (Claude Opus 4.7) - Simultaneous drop + temp dev HUD
+
+Replaced the alternating-turn flow with a simultaneous both-sides drop, and reshaped the HUD to a single centered "Temp Dev Buttons" stack. Per the [Keep it lean](Desgin/AI_AGENT_CODE_GUIDE.md#keep-it-lean) rule, deleted obsolete event surface rather than leaving compat shims.
+
+- **Events** (`Core/Events.cs`):
+  - `DropRequestedEvent` is now sideless (drops both sides at once).
+  - `RoundStartedEvent` no longer carries `ActiveSide` - one round = one simultaneous drop.
+  - `TurnEndedEvent` deleted (no per-side turn flip anymore).
+- **`BattleManager`**: state machine reduced to `WaitingForStart -> WaitingForDrop -> BallsInFlight -> WaitingForDrop`. Tracks `playerSettled` / `enemySettled` bools; round only increments once both balls have settled, then re-publishes `RoundStartedEvent` to re-arm the Drop button.
+- **`BattleHud`**: replaced the two side-specific buttons with a single centered Drop button. Added Exit (stops Play in editor / `Application.Quit` in builds) and a "Temp Dev Buttons" italic header. Drop uses `interactable = false/true` (not SetActive) so the stack layout doesn't shift between drops.
+- **Scene** (`SampleScene.unity`, mutated via Unity MCP):
+  - Destroyed `DropPlayerButton` and `DropEnemyButton`.
+  - Repositioned `StartButton` to `(0, +90)`, size 280x80.
+  - Created `TempDevHeader` (TMP, italic 24pt) at `(0, +170)`, `ExitButton` (red) at `(0, 0)`, `DropButton` (green) at `(0, -90)`.
+  - Re-wired `BattleHud.startButton` / `exitButton` / `dropButton` SerializedFields via `SerializedObject.FindProperty(<storage name>)` per [Issue 14](UNITY_MCP_HELPER.md#14---wiring-serializefield-private-refs-from-a-commandscript).
+
+Files added/changed:
+- `Assets/Scripts/Core/Events.cs` (TurnEndedEvent removed; DropRequestedEvent / RoundStartedEvent simplified)
+- `Assets/Scripts/Managers/BattleManager.cs` (round state machine + simultaneous drop)
+- `Assets/Scripts/UI/BattleHud.cs` (Start/Exit/Drop with interactable toggle)
+- `Assets/Scenes/SampleScene.unity` (HUD rebuild)
+- `Assets/Docs~/DEV_LOG.md` (this entry, scene composition, scripts table, implemented systems row)
+
+Follow-ups for the next agent:
+- The HUD is explicitly labelled "Temp Dev Buttons". Replace this with the real per-side roster strips ([Next milestones](#next-milestones-priority-order) #3) before vertical-slice playtesting; the dev stack is purely for triggering the loop in-editor.
+- `Exit` is wired to `EditorApplication.isPlaying = false` in editor and `Application.Quit()` in builds. There is no save/confirm flow yet - safe to use because there is no persistent state to lose.
+- `BattleManager` ignores `BallSettledEvent` if state isn't `BallsInFlight`; this is correct now but will need revisiting once Slot triggers fire for multiple balls per round (e.g. abilities that spawn extra balls).
+
+### 2026-04-21 - Cursor agent (Claude Opus 4.7) - Camera reframe + Z-axis ball lock
+
+Small tuning pass driven by user feedback on the MVP drop:
+
+- **Main Camera reframe** (manually adjusted by user, recorded here): position `(0, 0, -14) -> (0, 0, -19.75)`, FOV `60 -> 25`. Tighter framing on both boards with less perspective distortion. Updated [Scene composition](#scene-composition-samplescene) accordingly.
+- **Ball Z-axis lock**: balls were drifting along Z on first peg impact and falling out of the board container. Added `RigidbodyConstraints.FreezePositionZ` on `Assets/VisualAssets/Prefabs/Battle/Ball.prefab` (`m_Constraints: 0 -> 8`) so balls only translate on X/Y. No invisible walls were added, per user direction. Rotation is left fully unconstrained for now; if peg collisions look off (ball wobbling around X/Y axes), a follow-up agent can additionally freeze `RotationX | RotationY` (constraint mask `8 | 16 | 32 = 56`) for a strict 2D feel.
+
+Files added/changed:
+- `Assets/VisualAssets/Prefabs/Battle/Ball.prefab` (Rigidbody constraints)
+- `Assets/Docs~/DEV_LOG.md` (this entry + Main Camera line)
 
 ### 2026-04-21 - Cursor agent (Claude Opus 4.7) - Basic Battle Scene MVP
 

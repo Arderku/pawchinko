@@ -8,31 +8,24 @@ namespace Pawchinko
     }
 
     /// <summary>
-    /// Published when a new round/turn begins. Identifies the side that should drop next.
+    /// Published when a new round begins. Both sides drop simultaneously per round, so there is
+    /// no "active side" - the round number is enough to drive UI / scoring.
     /// </summary>
     public class RoundStartedEvent
     {
         public int RoundNumber { get; }
-        public Side ActiveSide { get; }
 
-        public RoundStartedEvent(int roundNumber, Side activeSide)
+        public RoundStartedEvent(int roundNumber)
         {
             RoundNumber = roundNumber;
-            ActiveSide = activeSide;
         }
     }
 
     /// <summary>
-    /// Published by the UI when the player clicks a DROP button.
+    /// Published by the UI when the player clicks DROP. Triggers a simultaneous drop on both sides.
     /// </summary>
     public class DropRequestedEvent
     {
-        public Side Side { get; }
-
-        public DropRequestedEvent(Side side)
-        {
-            Side = side;
-        }
     }
 
     /// <summary>
@@ -49,19 +42,6 @@ namespace Pawchinko
             BallId = ballId;
             Side = side;
             SlotIndex = slotIndex;
-        }
-    }
-
-    /// <summary>
-    /// Published once a side's drop has fully resolved (ball settled), signalling the turn flip.
-    /// </summary>
-    public class TurnEndedEvent
-    {
-        public Side JustEnded { get; }
-
-        public TurnEndedEvent(Side justEnded)
-        {
-            JustEnded = justEnded;
         }
     }
 }

@@ -5,8 +5,9 @@ using UnityEngine.UI;
 namespace Pawchinko
 {
     /// <summary>
-    /// Battle HUD: Start button, Drop buttons (one per side, mutually exclusive), round counter.
-    /// Listens to RoundStartedEvent to toggle which Drop button is active.
+    /// Battle HUD: temp dev controls (Start / Exit / Drop) stacked in the middle, plus the
+    /// round counter. Drop is disabled while balls are in flight and re-enabled when the next
+    /// round starts (driven by RoundStartedEvent).
     /// </summary>
     public class BattleHud : MonoBehaviour
     {
@@ -15,8 +16,8 @@ namespace Pawchinko
 
         [Header("UI")]
         [SerializeField] private Button startButton;
-        [SerializeField] private Button dropPlayerButton;
-        [SerializeField] private Button dropEnemyButton;
+        [SerializeField] private Button exitButton;
+        [SerializeField] private Button dropButton;
         [SerializeField] private TMP_Text roundCounterText;
 
         public void Initialize(EventSystem eventSystem)
@@ -24,8 +25,8 @@ namespace Pawchinko
             this.eventSystem = eventSystem;
 
             if (startButton == null) Debug.LogError("[BattleHud] startButton not assigned!");
-            if (dropPlayerButton == null) Debug.LogError("[BattleHud] dropPlayerButton not assigned!");
-            if (dropEnemyButton == null) Debug.LogError("[BattleHud] dropEnemyButton not assigned!");
+            if (exitButton == null) Debug.LogError("[BattleHud] exitButton not assigned!");
+            if (dropButton == null) Debug.LogError("[BattleHud] dropButton not assigned!");
             if (roundCounterText == null) Debug.LogError("[BattleHud] roundCounterText not assigned!");
 
             this.eventSystem.Subscribe<RoundStartedEvent>(OnRoundStarted);
@@ -34,19 +35,21 @@ namespace Pawchinko
             {
                 startButton.onClick.RemoveAllListeners();
                 startButton.onClick.AddListener(OnStartClicked);
+                startButton.interactable = true;
             }
-            if (dropPlayerButton != null)
+            if (exitButton != null)
             {
-                dropPlayerButton.onClick.RemoveAllListeners();
-                dropPlayerButton.onClick.AddListener(OnDropPlayerClicked);
+                exitButton.onClick.RemoveAllListeners();
+                exitButton.onClick.AddListener(OnExitClicked);
+                exitButton.interactable = true;
             }
-            if (dropEnemyButton != null)
+            if (dropButton != null)
             {
-                dropEnemyButton.onClick.RemoveAllListeners();
-                dropEnemyButton.onClick.AddListener(OnDropEnemyClicked);
+                dropButton.onClick.RemoveAllListeners();
+                dropButton.onClick.AddListener(OnDropClicked);
+                dropButton.interactable = false;
             }
 
-            ShowOnly(startButton);
             UpdateRoundText(0);
 
             Debug.Log("[BattleHud] Initialized");
@@ -54,46 +57,35 @@ namespace Pawchinko
 
         private void OnStartClicked()
         {
-            HideAllButtons();
+            if (startButton != null) startButton.interactable = false;
             eventSystem.Publish(new BattleStartedEvent());
         }
 
-        private void OnDropPlayerClicked()
+        private void OnExitClicked()
         {
-            HideAllButtons();
-            eventSystem.Publish(new DropRequestedEvent(Side.Player));
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
         }
 
-        private void OnDropEnemyClicked()
+        private void OnDropClicked()
         {
-            HideAllButtons();
-            eventSystem.Publish(new DropRequestedEvent(Side.Enemy));
+            if (dropButton != null) dropButton.interactable = false;
+            eventSystem.Publish(new DropRequestedEvent());
         }
 
         private void OnRoundStarted(RoundStartedEvent evt)
         {
             UpdateRoundText(evt.RoundNumber);
-            ShowOnly(evt.ActiveSide == Side.Player ? dropPlayerButton : dropEnemyButton);
+            if (dropButton != null) dropButton.interactable = true;
         }
 
         private void UpdateRoundText(int round)
         {
             if (roundCounterText == null) return;
             roundCounterText.text = round <= 0 ? "Round -" : $"Round {round}";
-        }
-
-        private void ShowOnly(Button toShow)
-        {
-            if (startButton != null) startButton.gameObject.SetActive(startButton == toShow);
-            if (dropPlayerButton != null) dropPlayerButton.gameObject.SetActive(dropPlayerButton == toShow);
-            if (dropEnemyButton != null) dropEnemyButton.gameObject.SetActive(dropEnemyButton == toShow);
-        }
-
-        private void HideAllButtons()
-        {
-            if (startButton != null) startButton.gameObject.SetActive(false);
-            if (dropPlayerButton != null) dropPlayerButton.gameObject.SetActive(false);
-            if (dropEnemyButton != null) dropEnemyButton.gameObject.SetActive(false);
         }
 
         private void OnDestroy()

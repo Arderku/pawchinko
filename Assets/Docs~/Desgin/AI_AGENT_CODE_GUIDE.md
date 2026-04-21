@@ -139,6 +139,18 @@ Debug.LogError("[BallManager] ballPrefab not assigned in Inspector!");
 #endif
 ```
 
+### Keep it lean
+
+Default to the smallest, most direct implementation that solves the actual problem in front of you. The codebase is small and there are no shipped users yet, so optimise for "easy to read and easy to change next week", not for hypothetical future flexibility.
+
+- **No premature abstraction.** Don't add interfaces, base classes, or generic wrappers until there are at least two real callers that need the seam. One concrete class is fine.
+- **No backwards-compat shims for code we wrote yesterday.** When you rename, move, or delete something, update every call site and delete the old name. Don't leave `[Obsolete]` aliases, "legacy" overloads, or wrapper methods that just forward to the new name. Pre-1.0, breaking the API is free.
+- **No messy indirection.** If a method just calls another method, inline it. If a manager just forwards an event, let the original publisher own it. Every layer of indirection has to earn its keep.
+- **No dead code, no commented-out code, no "just in case" parameters.** Delete it. Git remembers.
+- **Prefer fewer files.** A 60-line helper class that's used in one place belongs as a `private static` method, not a new file in `Core/`.
+
+**Pragmatic exception** — for *small, isolated* changes (a one-line fix, a tweak to a single field, an additive new method), it is fine to deviate from these rules if doing it "properly" would force a risky refactor that's out of scope for the change. In that case, leave a short `// TODO:` (or call it out in `DEV_LOG.md`) so the next agent knows the cleanup is owed. The rule is: *don't make the codebase worse to make a small change easier, but don't blow up the change scope to chase perfect either.*
+
 ---
 
 ## 7. Manager pattern
