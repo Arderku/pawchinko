@@ -23,12 +23,15 @@ This doc covers:
 1. **Never** "snap" a ball to a chosen slot. The slot is emergent, not assigned.
 2. **Never** decide an outcome upfront and then try to land the ball there. Outcome only comes from the slot trigger.
 3. Abilities are **bias-only**. They apply weak forces or change physics materials; they do not pick slots.
+4. **The physics drop system lives entirely inside the additively-loaded `Battle` scene.** The overworld scene must never instantiate balls, pegs, slots, or `BallSpawner`. See `AI_AGENT_CODE_GUIDE.md` Section 8 (Scene architecture) for the scene model.
 
 > Important: abilities are NOT being implemented now. The doc just locks in the extension shape so they slot in cleanly later.
 
 ---
 
 ## 2. Scene structure
+
+> Everything below lives under `Battle.unity` (the additively-loaded battle scene). No physics-drop GameObjects exist in `Overworld.unity` or `Boot.unity`.
 
 The board lives under one root and is built once per battle. The ball prefab is separate so it can be pooled / instantiated freely.
 
@@ -504,3 +507,4 @@ flowchart TD
 - [ ] Did you avoid coupling this system to any seed/RNG-based determinism assumption?
 - [ ] If the new ability is board-wide, is it a zone `MonoBehaviour` rather than a per-ball modifier?
 - [ ] Per-ball state lives on `Ball` only - modifiers stay stateless across balls?
+- [ ] Are all physics-drop GameObjects under the `Battle` scene root (not the `Overworld` scene)?

@@ -9,8 +9,8 @@
 > Purpose: define what Pawchinko *is* and how it *plays*, so anyone (AI or human) can build toward the same target.
 
 - **Audience**: AI coding agents first, human designers second. Use plain language, explicit rules, and call out unknowns rather than inventing values.
-- **How to use**: read top-to-bottom once. When in doubt during implementation, prefer Sections 2-21 (binding design intent) over Section 22 (suggested architecture).
-- **Hard rule**: do not invent mechanics that contradict the **Pinned Design Rules** in Section 19 or the **AI Agent Guardrails** in Section 20.
+- **How to use**: read top-to-bottom once. When in doubt during implementation, prefer Sections 2-22 (binding design intent) over Section 23 (suggested architecture).
+- **Hard rule**: do not invent mechanics that contradict the **Pinned Design Rules** in Section 20 or the **AI Agent Guardrails** in Section 21.
 - **Status of this doc**: living document. Deeper per-system specs (Battle, Board, Ball, Ability, Energy, Creature) will be authored separately later. This guide is the "north star," not the implementation contract.
 
 ---
@@ -46,16 +46,62 @@ flowchart LR
     Progression --> Explore
 ```
 
-- **Explore** - top-down movement across the overworld. Encounter zones (grass, caves, water, etc.) trigger random or fixed encounters.
-- **Encounter** - transition into a battle against a wild Paw or rival trainer.
-- **Battle** - round-based plinko duel (see Section 4).
+- **Explore** - the player walks a 3D top-down overworld (Pokemon-style camera and movement). See Section 4 for the overworld system.
+- **Encounter** - stepping into an encounter zone (or interacting with a fixed-encounter NPC) triggers the transition out of the overworld and into a separate **battle instance**. The overworld is paused, not destroyed.
+- **Battle** - round-based plinko duel inside the battle instance (see Section 5).
 - **Rewards** - EXP and likely currency / items / new-creature unlocks. *(TBD: exact reward contents and rates.)*
 - **Progression** - apply EXP, level up creatures, unlock new stats / ball counts / abilities.
-- Loop back to Explore.
+- Loop back to Explore - control returns to the overworld at the same spot the player left.
 
 ---
 
-## 4. Battle Flow
+## 4. Overworld System
+
+> The Pokemon-style top-down world the player explores between battles. This is a first-class system, not a backdrop for the battle screen.
+
+The overworld is the persistent slice of the game where the player walks around, finds creatures, talks to NPCs, and triggers battles. It is a **separate instance** from the battle - the two never share a scene, never share a camera, and never share input.
+
+### Camera and movement
+
+- **Top-down 3D camera** angled slightly forward, framing the player and a comfortable area around them. Pokemon-style readability: tile-relative motion is fine, full free 3D movement is also fine - the design intent is "walk around a 3D world from above," not a specific control scheme.
+- **Player avatar** is a 3D model (matching the chibi creature style from Section 18) with idle and walk animations.
+- Movement is **input-agnostic** (see Section 19) - directional input on touch, keyboard, or gamepad.
+
+### Encounter zones
+
+- **Encounter zones** are tagged regions of the overworld (grass patches, caves, water, story trigger volumes, NPC line-of-sight cones, etc.) that can start a 1v1 battle when the player enters or interacts.
+- **Encounter sources**:
+  - **Wild encounters** - random rolls while moving through a zone. Produces a battle against a wild Paw.
+  - **Trainer encounters** - scripted or line-of-sight encounters with rival NPC trainers.
+  - **Story encounters** - fixed, plot-driven battles tied to specific overworld triggers.
+- Encounter rate, allowed species per zone, and trainer rosters are **design data sets**, authored later. *(TBD: encounter rate formula, per-zone species tables, NPC trainer lineups.)*
+
+### Transition into battle
+
+When an encounter triggers:
+
+1. The overworld **pauses** - input disabled, AI / NPC ticks halted, camera frozen. The overworld scene state is preserved exactly as it was.
+2. The **battle instance loads on top** of the overworld. The battle flow (see Section 5) and battle scene composition (see Section 6) describe what the player sees and interacts with for the duration of the battle.
+3. The battle resolves to completion (one team's energy hits zero - see Section 7).
+4. Rewards are applied (see Section 16).
+5. The battle instance **unloads**. The overworld **resumes** at the exact spot the player left, with the player avatar and world state untouched.
+
+### Hard rules
+
+- **Overworld and Battle are two distinct instances.** Battle never happens "inside" the overworld scene. The overworld never instantiates battle systems (boards, balls, battle UI), and the battle never instantiates overworld systems (player controller, encounter zones).
+- **One battle at a time.** A new encounter cannot trigger while a battle instance is loaded.
+- **Return-to-spot is mandatory.** After battle, the player resumes at the same overworld coordinates and facing direction they had at encounter time. The overworld does not reset.
+
+### TBD
+
+- Encounter rate formula and per-zone tuning.
+- NPC trainer behavior in the overworld (patrols, line-of-sight cones, post-battle dialogue).
+- Save / restore granularity for the overworld pause (full state snapshot vs. trusting the scene to remain in memory).
+- Whether the overworld plays a transition flourish (camera zoom, screen wipe) before the battle scene appears.
+
+---
+
+## 5. Battle Flow
 
 > What happens inside a single battle, broken down per round.
 
@@ -66,7 +112,7 @@ A battle is a sequence of **rounds**. Each round runs through these phases in or
 3. **Ball Spawn** - total balls dropped this round equal the sum of every participating creature's ball-count contribution. Each ball inherits the stats and behavior of the creature that spawned it.
 4. **Drop / Physics Resolution** - balls drop through pegs into buckets. From this moment on it is pure physics + already-locked-in modifiers; the player has no further input until resolution completes.
 5. **Scoring** - per-ball scores are tallied and summed into a round score for each side.
-6. **Energy Update** - applies the round score difference to both teams' energy pools (see Section 6).
+6. **Energy Update** - applies the round score difference to both teams' energy pools (see Section 7).
 7. **End-of-Round Check** - if either team's energy is at or below 0, the battle ends; otherwise advance to the next round.
 
 ```mermaid
@@ -89,9 +135,9 @@ stateDiagram-v2
 
 ---
 
-## 5. Scene Composition (CRITICAL)
+## 6. Battle Scene Composition (CRITICAL)
 
-> How the battle scene is built in 3D + 2D layers. This is the most-misinterpreted area, so read carefully.
+> How the battle scene is built in 3D + 2D layers. This is the most-misinterpreted area, so read carefully. This whole section describes the **battle instance only** - the overworld scene (Section 4) has its own composition.
 
 ### Layer breakdown
 
@@ -140,13 +186,13 @@ A few rules that are easy to get wrong - restated here so they're impossible to 
 
 - **Exactly 5 creatures per side.** Never 4, never 6.
 - **Pegs are round plinko-style pegs**, not stars, sparkles, or abstract dots. Real plinko geometry only.
-- **Energy is team-summed.** Per-creature HP bars are explicitly out of scope - do not add them to the roster strips (see Section 6 and Section 20).
+- **Energy is team-summed.** Per-creature HP bars are explicitly out of scope - do not add them to the roster strips (see Section 7 and Section 21).
 - **Ball art is type-themed per source creature.** Generic round-ball / "Pokeball" placeholder visuals are not canonical; balls must read as belonging to their source creature's type.
 - **Illustrative values are not canonical.** Any specific creature names, ability names, faction names, bucket numbers, round numbers, or score numbers shown elsewhere in this guide are illustrative examples only. Only positions, components, and counts are binding.
 
 ---
 
-## 6. Energy System
+## 7. Energy System
 
 > Energy is the win condition. Health for the team, not the individual.
 
@@ -163,28 +209,28 @@ A few rules that are easy to get wrong - restated here so they're impossible to 
 
 ---
 
-## 7. Creatures (Paws)
+## 8. Creatures (Paws)
 
 > What a Paw is and what data defines one.
 
 A **Paw** is a collectible creature with identity and progression. Each Paw has the following fields:
 
-- **Type** - one of Fire / Water / Electric / Nature / Chaos (see Section 9).
+- **Type** - one of Fire / Water / Electric / Nature / Chaos (see Section 10).
 - **Level** - integer 1 to 50.
 - **Energy Value** - the creature's contribution to the team's starting energy pool.
 - **AP Cost** - action-point cost to deploy / queue this creature in a round. *(TBD: full AP economy - per-round AP budget, refresh rules, and how AP relates to which creatures can act.)*
-- **Stats** - Power, Weight, Luck, Control (see Section 8).
+- **Stats** - Power, Weight, Luck, Control (see Section 9).
 - **Ball Profile** - the data that describes this creature's balls:
   - Ball **type** (matches creature type).
   - Ball **count contribution** per round (scales with level - *exact formula TBD*).
   - Ball **behavior tags** (examples only: bouncy, heavy, splitter, sticky). The exact tag list is a design data set, not fixed here.
-- **Abilities** - one or more abilities owned by the creature; one ability is selected per round (selection scope TBD, see Section 12).
+- **Abilities** - one or more abilities owned by the creature; one ability is selected per round (selection scope TBD, see Section 13).
 
 Creatures define ball type and per-round ball contribution. Two creatures of the same type but different stats produce balls of the same type with different physical behavior.
 
 ---
 
-## 8. Stats
+## 9. Stats
 
 > Four stats, one line each. Keep them legible.
 
@@ -195,7 +241,7 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ---
 
-## 9. Types
+## 10. Types
 
 > Types describe identity and behavior. They are NOT a rock-paper-scissors damage table.
 
@@ -209,7 +255,7 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ---
 
-## 10. Ball System
+## 11. Ball System
 
 > Balls are the only thing that actually scores. Every other system feeds into how balls behave and how many you get.
 
@@ -221,7 +267,7 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ---
 
-## 11. Board System
+## 12. Board System
 
 > Each side has its own board. Boards are where physics meets design.
 
@@ -236,7 +282,7 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ---
 
-## 12. Ability System
+## 13. Ability System
 
 > Abilities are the game's primary interaction and counter system.
 
@@ -256,18 +302,18 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ---
 
-## 13. Scoring
+## 14. Scoring
 
 > How a number on a board becomes energy damage.
 
 - **Per ball**: `Score = BucketValue * Power * Modifiers`
 - **Per round per side**: sum of all ball scores on that side's board.
 - Both sides score in **parallel** from their own boards during the same drop.
-- The round score feeds the **Energy System** (Section 6) - the *difference* is what matters.
+- The round score feeds the **Energy System** (Section 7) - the *difference* is what matters.
 
 ---
 
-## 14. Strategy Layers
+## 15. Strategy Layers
 
 > Where the player exercises agency. If a feature doesn't feed one of these, question it.
 
@@ -278,7 +324,7 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ---
 
-## 15. Progression
+## 16. Progression
 
 > How creatures grow and how the collection broadens.
 
@@ -290,7 +336,7 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ---
 
-## 16. UI Layout Reference
+## 17. UI Layout Reference
 
 > Canonical on-screen layout. Spatial positions and the components present are binding; the example labels and numbers below are illustrative only.
 
@@ -298,7 +344,7 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 - **Left edge** - player team strip:
   - Small faction / team header (example: "Ember").
   - Exactly **5 creature rows**, each showing the creature's portrait, name, and level.
-  - **Per-row HP bars are explicitly NOT part of the canonical layout.** Energy is team-summed (see Section 6).
+  - **Per-row HP bars are explicitly NOT part of the canonical layout.** Energy is team-summed (see Section 7).
 - **Right edge** - enemy team strip, mirrored layout, also exactly 5 rows.
 - **Center stage** - the two 3D plinko boards with live ball physics; bucket value labels overlay each 3D bucket.
 - **Active creature indicator** - a small arrow or highlight on the currently-acting creature's row in the roster (one per side).
@@ -308,7 +354,7 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ---
 
-## 17. Art & Audio Direction
+## 18. Art & Audio Direction
 
 > Lightweight direction; not a full art bible.
 
@@ -320,7 +366,7 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ---
 
-## 18. Input & Platform
+## 19. Input & Platform
 
 > Cross-platform from day one; bind specifics later.
 
@@ -330,7 +376,7 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ---
 
-## 19. Pinned Design Rules (Hard Constraints)
+## 20. Pinned Design Rules (Hard Constraints)
 
 > Non-negotiable. Any feature, refactor, or new system must respect every rule below.
 
@@ -348,9 +394,11 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 > **Keep systems readable** - avoid hidden complexity and silent RNG.
 
+> **Overworld and Battle are separate instances.** Battle resolves to completion before control returns to the overworld; the two never share a scene, camera, or input layer.
+
 ---
 
-## 20. AI Agent Guardrails
+## 21. AI Agent Guardrails
 
 > Explicit do / don't list for AI coding agents working in this repo. If a request would violate one of these, ask the user first.
 
@@ -360,8 +408,9 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 - **Do** route all counterplay through abilities, peg modifiers, and bucket modifiers.
 - **Do** keep boards as 3D scenes with a 2D UI overlay layer.
 - **Do** keep 5 creatures per side on the roster.
-- **Do** flag unknowns to the user instead of inventing values for AP cost, ball-count scaling, bucket layouts, ability selection scope, or reward tables.
-- **Do** prefer Sections 2-21 over Section 22 when they conflict.
+- **Do** keep the **overworld and battle as separate instances** (separate scenes, separate cameras, separate input). Cross-system communication goes through events only.
+- **Do** flag unknowns to the user instead of inventing values for AP cost, ball-count scaling, bucket layouts, ability selection scope, encounter rates, or reward tables.
+- **Do** prefer Sections 2-22 over Section 23 when they conflict.
 
 **Don't:**
 
@@ -370,12 +419,14 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 - **Don't** turn the boards into pure 2D sprites or remove the 3D creature stage.
 - **Don't** replace ability counterplay with passive stat checks.
 - **Don't** add hidden RNG that the player cannot read or counter.
+- **Don't** spawn battle systems (boards, balls, battle UI, scoring) into the overworld scene, or overworld systems (player controller, encounter zones, world NPCs) into the battle scene.
+- **Don't** persist battle-only state (active queue, ball lists, board modifiers) into the overworld after a battle ends. Battle state is scoped to the battle instance.
 - **Don't** treat the illustrative example labels in this guide (specific creature names, ability names, faction names, bucket numbers, round numbers) as canonical - only positions, components, and counts are binding.
-- **Don't** refactor the code to match the architecture appendix in Section 22 unless the user explicitly asks.
+- **Don't** refactor the code to match the architecture appendix in Section 23 unless the user explicitly asks.
 
 ---
 
-## 21. Glossary
+## 22. Glossary
 
 - **Paw** - a creature.
 - **Energy** - team-summed health / win-condition resource.
@@ -387,12 +438,15 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 - **Bucket** - a scoring container at the base of a board.
 - **Peg** - a deflector on the board; may be a "modifier peg" with effects.
 - **Modifier** - any temporary effect on a ball, peg, or bucket.
+- **Overworld** - the persistent top-down 3D world the player walks around between battles.
+- **Encounter Zone** - a tagged region or trigger volume in the overworld that can start a battle (wild grass patch, NPC line-of-sight cone, scripted story trigger, etc.).
+- **Battle Instance** - the separately-loaded slice of the game where a 1v1 plinko battle happens. Distinct from the overworld; loaded on encounter, unloaded on battle end.
 
 ---
 
-## 22. Appendix: Suggested Unity Architecture (NON-PRESCRIPTIVE)
+## 23. Appendix: Suggested Unity Architecture (NON-PRESCRIPTIVE)
 
-> **This appendix is an abstract suggestion only.** AI agents and designers should NOT treat it as a hard contract. Implementation details may evolve, and the binding design intent lives in Sections 1-21. **Do not refactor the codebase to match this appendix unless the user explicitly asks.** Per-system technical specs will be authored separately later.
+> **This appendix is an abstract suggestion only.** AI agents and designers should NOT treat it as a hard contract. Implementation details may evolve, and the binding design intent lives in Sections 1-22. **Do not refactor the codebase to match this appendix unless the user explicitly asks.** Per-system technical specs will be authored separately later.
 
 A reasonable starting shape (carried forward from the original GDD so it isn't lost):
 
@@ -410,8 +464,9 @@ A reasonable starting shape (carried forward from the original GDD so it isn't l
   - **Energy System** - calculates and applies round results.
   - **Creature System** - manages stats, scaling, and team composition.
 
-- **Suggested state machines**:
-  - **Game state**: Boot -> Explore -> Battle -> Rewards.
+- **Suggested scene / state machines**:
+  - **Scene model**: a persistent **Boot** scene (owns the global manager and event bus), an **Overworld** scene loaded after boot (top-down player + encounter zones), and a **Battle** scene loaded **additively on top** of the overworld when an encounter triggers - then unloaded when the battle ends, leaving the overworld intact in memory. The deeper code-side rules (which manager loads what, pause semantics, cross-scene events) live in `AI_AGENT_CODE_GUIDE.md` Section 8.
+  - **Game state** at a high level: Boot -> Overworld (persistent) <-> Battle Instance (additive, transient) -> Rewards.
   - **Battle state**: Setup -> Ability -> Spawn -> Drop -> Resolve -> Energy -> End (or loop back to Setup).
 
 - **Suggested patterns**:
