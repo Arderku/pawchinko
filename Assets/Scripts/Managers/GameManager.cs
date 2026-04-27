@@ -18,12 +18,16 @@ namespace Pawchinko
         [SerializeField] private BattleManager battleManager;
         [SerializeField] private BoardManager boardManager;
         [SerializeField] private BallManager ballManager;
+        [SerializeField] private ScoringManager scoringManager;
+        [SerializeField] private EnergyManager energyManager;
         [SerializeField] private UIManager uiManager;
 
         public EventSystem EventSystem => eventSystem;
         public BattleManager BattleManager => battleManager;
         public BoardManager BoardManager => boardManager;
         public BallManager BallManager => ballManager;
+        public ScoringManager ScoringManager => scoringManager;
+        public EnergyManager EnergyManager => energyManager;
         public UIManager UIManager => uiManager;
 
         private void Awake()
@@ -49,11 +53,21 @@ namespace Pawchinko
 
         private void InitializeManagers()
         {
+            // Order matters: subscribers (Scoring, Energy) must be alive before publishers
+            // (BattleManager publishes BattleStartedEvent / RoundStartedEvent on the very first
+            // BattleStartedEvent the HUD raises). UIManager last so the HUD also subscribes
+            // before BattleManager's first publish during the first OnStartClicked.
             if (boardManager != null) boardManager.Initialize(eventSystem);
             else Debug.LogError("[GameManager] BoardManager not assigned in Inspector!");
 
             if (ballManager != null) ballManager.Initialize(eventSystem);
             else Debug.LogError("[GameManager] BallManager not assigned in Inspector!");
+
+            if (scoringManager != null) scoringManager.Initialize(eventSystem);
+            else Debug.LogError("[GameManager] ScoringManager not assigned in Inspector!");
+
+            if (energyManager != null) energyManager.Initialize(eventSystem);
+            else Debug.LogError("[GameManager] EnergyManager not assigned in Inspector!");
 
             if (battleManager != null) battleManager.Initialize(eventSystem);
             else Debug.LogError("[GameManager] BattleManager not assigned in Inspector!");
