@@ -464,6 +464,35 @@ namespace Pawchinko
 eventSystem.Publish(new BallLaunchedEvent(ballId, 12.5f));
 ```
 
+### When NOT to use the bus
+
+**UI never publishes to the bus.** Button clicks, slider drags, and other local UI inputs should call the relevant manager directly (e.g. `GameManager.Instance.BattleManager.StartBattle()`) — Unity's built-in `Button.onClick` `UnityEvent` already handles the UI side. The custom `EventSystem` is reserved for **cross-system gameplay broadcasts** that announce something happened in the game world (round started, drop requested, ball settled, battle ended).
+
+The flow is always: **UI → manager method → (manager publishes gameplay event for everyone else).** Managers may publish gameplay events even when no other system listens yet, as long as it represents a real game-state moment (`BattleStartedEvent`, `DropRequestedEvent`) — that's cheap and lets future systems (SFX, camera, analytics) subscribe without touching the publisher.
+
+What this rules out: **don't republish a UI click as an event** just because UI code happens to be reacting to a button press.
+
+```csharp
+// BAD - UI publishing its own click onto the bus
+private void OnStartClicked()
+{
+    eventSystem.Publish(new StartButtonClickedEvent()); // UI input, not a gameplay broadcast
+}
+
+// GOOD - UI calls the manager directly; the manager publishes the gameplay event
+private void OnStartClicked()
+{
+    GameManager.Instance.BattleManager.StartBattle();
+}
+
+public void StartBattle()
+{
+    // ... state transitions ...
+    eventSystem.Publish(new BattleStartedEvent());      // gameplay broadcast - EnergyManager seeds, HUD reacts, ...
+    eventSystem.Publish(new RoundStartedEvent(...));
+}
+```
+
 ---
 
 ## 10. Data classes

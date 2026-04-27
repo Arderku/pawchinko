@@ -40,8 +40,6 @@ namespace Pawchinko
         public void Initialize(EventSystem eventSystem)
         {
             this.eventSystem = eventSystem;
-            this.eventSystem.Subscribe<BattleStartedEvent>(OnBattleStarted);
-            this.eventSystem.Subscribe<DropRequestedEvent>(OnDropRequested);
             this.eventSystem.Subscribe<RoundScoredEvent>(OnRoundScored);
             this.eventSystem.Subscribe<BattleEndedEvent>(OnBattleEnded);
 
@@ -84,11 +82,15 @@ namespace Pawchinko
             }
         }
 
-        private void OnBattleStarted(BattleStartedEvent evt)
+        /// <summary>
+        /// Begins a new battle. Called directly by UI (BattleHud) - not via the bus.
+        /// Publishes BattleStartedEvent first so EnergyManager seeds energy before round 1.
+        /// </summary>
+        public void StartBattle()
         {
             if (state != State.WaitingForStart && state != State.BattleOver)
             {
-                Debug.LogWarning("[BattleManager] BattleStartedEvent ignored - already in state " + state);
+                Debug.LogWarning("[BattleManager] StartBattle ignored - already in state " + state);
                 return;
             }
 
@@ -98,14 +100,18 @@ namespace Pawchinko
             state = State.WaitingForDrop;
 
             Debug.Log($"[BattleManager] Battle started - Round {currentRound}");
+            eventSystem.Publish(new BattleStartedEvent());
             eventSystem.Publish(new RoundStartedEvent(currentRound, playerActiveIndex, enemyActiveIndex));
         }
 
-        private void OnDropRequested(DropRequestedEvent evt)
+        /// <summary>
+        /// Triggers the simultaneous drop for the current round. Called directly by UI.
+        /// </summary>
+        public void RequestDrop()
         {
             if (state != State.WaitingForDrop)
             {
-                Debug.LogWarning($"[BattleManager] DropRequested ignored - state is {state}");
+                Debug.LogWarning($"[BattleManager] RequestDrop ignored - state is {state}");
                 return;
             }
 
@@ -118,6 +124,7 @@ namespace Pawchinko
 
             state = State.BallsInFlight;
 
+            eventSystem.Publish(new DropRequestedEvent());
             ballManager.SpawnFor(Side.Player);
             ballManager.SpawnFor(Side.Enemy);
 
@@ -147,8 +154,6 @@ namespace Pawchinko
         private void OnDestroy()
         {
             if (eventSystem == null) return;
-            eventSystem.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
-            eventSystem.Unsubscribe<DropRequestedEvent>(OnDropRequested);
             eventSystem.Unsubscribe<RoundScoredEvent>(OnRoundScored);
             eventSystem.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
         }

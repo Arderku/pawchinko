@@ -66,6 +66,8 @@ namespace Pawchinko
             this.eventSystem.Subscribe<EnergyChangedEvent>(OnEnergyChanged);
             this.eventSystem.Subscribe<BattleEndedEvent>(OnBattleEnded);
 
+            // TODO: Temporary code-based onClick wiring (unblocks playtest). Replaced when UI Toolkit
+            // panels land and buttons are wired via UI Toolkit clicked events / UnityEvents in the Inspector.
             if (startButton != null)
             {
                 startButton.onClick.RemoveAllListeners();
@@ -100,7 +102,14 @@ namespace Pawchinko
             if (winnerOverlay != null) winnerOverlay.SetActive(false);
             if (roundScoreText != null) roundScoreText.text = "0 | 0";
             if (startButton != null) startButton.interactable = false;
-            eventSystem.Publish(new BattleStartedEvent());
+
+            var battleManager = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
+            if (battleManager == null)
+            {
+                Debug.LogError("[BattleHud] BattleManager unavailable, cannot start battle.");
+                return;
+            }
+            battleManager.StartBattle();
         }
 
         private void OnExitClicked()
@@ -115,7 +124,14 @@ namespace Pawchinko
         private void OnDropClicked()
         {
             if (dropButton != null) dropButton.interactable = false;
-            eventSystem.Publish(new DropRequestedEvent());
+
+            var battleManager = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
+            if (battleManager == null)
+            {
+                Debug.LogError("[BattleHud] BattleManager unavailable, cannot request drop.");
+                return;
+            }
+            battleManager.RequestDrop();
         }
 
         private void OnRoundStarted(RoundStartedEvent evt)

@@ -53,10 +53,11 @@ namespace Pawchinko
 
         private void InitializeManagers()
         {
-            // Order matters: subscribers (Scoring, Energy) must be alive before publishers
-            // (BattleManager publishes BattleStartedEvent / RoundStartedEvent on the very first
-            // BattleStartedEvent the HUD raises). UIManager last so the HUD also subscribes
-            // before BattleManager's first publish during the first OnStartClicked.
+            // Order matters: subscribers (Scoring, Energy) must be alive before publishers.
+            // BattleManager.StartBattle() (called directly by the HUD's Start button) publishes
+            // BattleStartedEvent then RoundStartedEvent synchronously - EnergyManager must already
+            // be subscribed. UIManager is initialized last so the HUD subscribes to its gameplay
+            // events before BattleManager's first publish on the first OnStartClicked.
             if (boardManager != null) boardManager.Initialize(eventSystem);
             else Debug.LogError("[GameManager] BoardManager not assigned in Inspector!");
 
