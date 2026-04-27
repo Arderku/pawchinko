@@ -4,15 +4,16 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CharacterController))]
 public class SimpleTopDownController : MonoBehaviour
 {
-    [Header("Movement")]
-    public float moveSpeed = 4.5f;
-    public Transform model;
+    public float walkSpeed = 3f;
+    public float runSpeed = 6f;
 
-    [Header("Input")]
+    public Transform model;
+    public Animator animator; // expose this
+
     public InputActionReference moveAction;
+    public InputActionReference sprintAction;
 
     private CharacterController controller;
-    private Vector2 moveInput;
 
     void Awake()
     {
@@ -22,29 +23,33 @@ public class SimpleTopDownController : MonoBehaviour
     void OnEnable()
     {
         moveAction.action.Enable();
+        sprintAction.action.Enable();
     }
 
     void OnDisable()
     {
         moveAction.action.Disable();
+        sprintAction.action.Disable();
     }
 
     void Update()
     {
-        moveInput = moveAction.action.ReadValue<Vector2>();
+        Vector2 input = moveAction.action.ReadValue<Vector2>();
+        bool isSprinting = sprintAction.action.IsPressed();
 
-        Vector3 move = new Vector3(moveInput.x, 0f, moveInput.y).normalized;
+        Vector3 move = new Vector3(input.x, 0f, input.y);
+        float inputAmount = move.magnitude;
 
-        controller.Move(move * moveSpeed * Time.deltaTime);
+        float speed = isSprinting ? runSpeed : walkSpeed;
+        controller.Move(move.normalized * speed * Time.deltaTime);
 
-        if (move.sqrMagnitude > 0.01f)
+        float animSpeed = isSprinting ? 1f : 0.5f;
+        animator.SetFloat("Speed", inputAmount * animSpeed);
+
+        if (inputAmount > 0.01f)
         {
             Quaternion targetRot = Quaternion.LookRotation(move);
-            model.rotation = Quaternion.Slerp(
-                model.rotation,
-                targetRot,
-                12f * Time.deltaTime
-            );
+            model.rotation = Quaternion.Slerp(model.rotation, targetRot, 12f * Time.deltaTime);
         }
     }
 }
