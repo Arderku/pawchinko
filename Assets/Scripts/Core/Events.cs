@@ -1,7 +1,8 @@
 namespace Pawchinko
 {
     /// <summary>
-    /// Published when the player presses START to begin the battle.
+    /// Published by BattleManager when a battle begins. Cross-system gameplay broadcast
+    /// (EnergyManager seeds team energy, future systems may also react). Not a UI input.
     /// </summary>
     public class BattleStartedEvent
     {
@@ -26,7 +27,9 @@ namespace Pawchinko
     }
 
     /// <summary>
-    /// Published by the UI when the player clicks DROP. Triggers a simultaneous drop on both sides.
+    /// Published by BattleManager when a drop is initiated for the current round (after the
+    /// state guard passes, before balls spawn). Cross-system gameplay broadcast - other systems
+    /// (SFX, camera shake, analytics, etc.) can subscribe to react. Not a UI input.
     /// </summary>
     public class DropRequestedEvent
     {
