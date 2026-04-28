@@ -338,17 +338,18 @@ namespace Pawchinko
 
 ### Scene-scoped managers
 
-Each gameplay scene has a single root manager that owns the systems for that scene:
+Each gameplay scene has a scene root that owns the systems for that scene:
 
 - `OverworldManager` (in `Overworld.unity`) - owns the player controller, encounter zones, overworld camera, world NPCs.
-- `BattleManager` (in `Battle.unity`) - owns the boards, ball spawner, battle UI, battle camera, scoring, energy.
+- `BattleSceneRoot` (in `Battle.unity`) - owns battle manager initialization order: board, ball, scoring, energy, battle, UI.
+- `BattleManager` remains the battle state machine; it does not own every battle subsystem directly.
 
 Lifecycle:
 
-1. When a scene loads, its scene-scoped manager `Awake`s.
-2. It registers itself with `GameManager` (e.g. `GameManager.Instance.RegisterBattleManager(this)`).
-3. `GameManager` calls `Initialize(eventSystem)` on it - same pattern as every other manager (see §7).
-4. When the scene unloads, the scene-scoped manager's `OnDestroy` unsubscribes from all events and deregisters from `GameManager`.
+1. When a scene loads, its scene root `Awake`s.
+2. It registers itself with `GameManager` (`RegisterOverworldManager` or `RegisterBattleScene`).
+3. `GameManager` passes the shared `eventSystem` to the root. `BattleSceneRoot` then initializes battle sub-managers in the required order.
+4. When the scene unloads, the scene root and sub-managers unsubscribe from events and deregister from `GameManager`.
 
 `GameManager` exposes scene-scoped managers as **nullable** properties (`BattleManager` is `null` until a battle is loaded). Code that touches them must null-check.
 

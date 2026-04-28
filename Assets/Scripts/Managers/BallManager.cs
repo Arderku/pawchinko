@@ -10,12 +10,23 @@ namespace Pawchinko
     {
         [Header("References")]
         [SerializeField] private EventSystem eventSystem;
+        [SerializeField] private BoardManager boardManager;
 
         private int _nextBallId;
 
         public void Initialize(EventSystem eventSystem)
         {
             this.eventSystem = eventSystem;
+            if (boardManager == null && GameManager.Instance != null)
+            {
+                boardManager = GameManager.Instance.BoardManager;
+            }
+
+            if (boardManager == null)
+            {
+                Debug.LogError("[BallManager] BoardManager not assigned!");
+            }
+
             _nextBallId = 0;
             Debug.Log("[BallManager] Initialized");
         }
@@ -25,7 +36,6 @@ namespace Pawchinko
         /// </summary>
         public Ball SpawnFor(Side side)
         {
-            var boardManager = GameManager.Instance != null ? GameManager.Instance.BoardManager : null;
             if (boardManager == null)
             {
                 Debug.LogError("[BallManager] BoardManager unavailable.");

@@ -13,10 +13,10 @@
 4. Never call `SceneManager.LoadSceneAsync` outside `SceneFlowManager` (does not exist yet - see Next Milestones).
 5. Never directly assign `Rigidbody.velocity` or `transform.position` on balls. All ball physics goes through `AddForce` / `AddTorque` only.
 
-## Current state (as of 2026-04-24)
+## Current state (as of 2026-04-28)
 
 - Unity 6000.4.0f1, URP 17.4, ugui 2.0 (TMP bundled), Input System 1.19.
-- Single working scene: [Assets/Scenes/SampleScene.unity](../Scenes/SampleScene.unity). The Boot/Overworld/Battle scene split from the design guide is **not** yet in place; everything lives in SampleScene.
+- Working scene flow: [Assets/Scenes/Boot.unity](../Scenes/Boot.unity) loads [Assets/Scenes/Overworld.unity](../Scenes/Overworld.unity), then `SceneFlowManager` additively loads/unloads [Assets/Scenes/Battle.unity](../Scenes/Battle.unity) on encounter/battle-end events. [Assets/Scenes/SampleScene.unity](../Scenes/SampleScene.unity) remains as legacy/reference battle content.
 - Layers defined in `ProjectSettings/TagManager.asset`: `Ball=8`, `Peg=9`, `Wall=10`, `Slot=11`. Collision matrix configured per [PHYSICS_DROP_GUIDE.md](Desgin/PHYSICS_DROP_GUIDE.md) Section 3.
 - Folder layout matches [AI_AGENT_CODE_GUIDE.md](Desgin/AI_AGENT_CODE_GUIDE.md) Section 2.
 
@@ -27,12 +27,16 @@ Assets/Scripts/
   Pawchinko.asmdef
   Core/
     EventSystem.cs   - generic pub/sub, singleton
-    Events.cs        - BattleStartedEvent, RoundStartedEvent (active-pet indices),
+    Events.cs        - EncounterTriggeredEvent, OverworldPausedEvent,
+                       OverworldResumedEvent, BattleStartedEvent, RoundStartedEvent,
                        DropRequestedEvent, BallSettledEvent, RoundScoredEvent,
                        EnergyChangedEvent, BattleEndedEvent
     Side.cs          - enum { Player, Enemy }
   Managers/
-    GameManager.cs    - singleton, owns sub-managers, runs Initialize chain
+    GameManager.cs    - Boot singleton, owns persistent systems + scene registrations
+    SceneFlowManager.cs - sole owner of scene load/unload calls
+    OverworldManager.cs - scene root for player/camera pause and resume
+    BattleSceneRoot.cs - battle scene composition root, owns init order
     BattleManager.cs  - round state machine, simultaneous drop, active-pet rotation, BattleOver
     BoardManager.cs   - holds per-side BallSpawner refs
     BallManager.cs    - assigns ball IDs, routes Settled callbacks to events
@@ -46,6 +50,8 @@ Assets/Scripts/
     Peg.cs           - row/col data marker
     Slot.cs          - trigger collider, forwards entries to Ball
     BallSpawner.cs   - per-board spawner, jitter + torque, optional material override
+  Gameplay/Overworld/
+    OverworldPlayerController.cs - top-down CharacterController movement + input pause
   Data/
     BoardLayout.cs        - plain data (peg counts, slot count, spacings)
     PlaceholderPet.cs     - [Serializable] {petName, level} stand-in for Paw data
@@ -66,53 +72,28 @@ Assets/VisualAssets/
                        maxAngularVelocity=50, PhysicsMaterial assigned
 ```
 
-### Scene composition (SampleScene)
+### Scene composition (Boot / Overworld / Battle)
 
 ```
-Managers (root)
-  GameEventSystem  (Pawchinko.EventSystem)
-  GameManager
-  BattleManager
-  BoardManager
-  BallManager
-  ScoringManager   (Pawchinko.ScoringManager - per-round score accumulator)
-  EnergyManager    (Pawchinko.EnergyManager - team-summed energy)
-  UIManager
-Main Camera        (0, 0, -19.75), FOV 25, sky-blue clear color
-Directional Light  (existing)
-Global Volume      (existing URP volume)
-Boards
-  PlayerBoard      (-3.5, 0, 0)  blue tint
-    Backboard, Pegs/ (5x5 staggered), Walls/ (Left/Right/Floor),
-    Slots/ (Slot_0..Slot_4 trigger, slotIndex 0..4), BallSpawner + SpawnPoint, BallContainer
-  EnemyBoard       (+3.5, 0, 0)  red tint, mirrored, EnemyBall_Mat override
-Canvas (Screen Space - Overlay, 1920x1080 ScaleWithScreenSize)
-  BattleHud
-    RoundCounterBar  (decorative bar behind RoundCounterText)
-    RoundCounterText (TMP, top-center, anchor (0.5,1) y=-40)
-    TempDevHeader    (TMP, center, "Temp Dev Buttons", italic 24pt, y=+170)
-    StartButton      (center, yellow,        y=+90, 280x80)
-    ExitButton       (center, red,           y=  0, 280x80, stops Play / Application.Quit)
-    DropButton       (center, green,         y=-90, 280x80, interactable toggles per round)
-    PlaceholderMarker(TMP italic 18pt top-right "PLACEHOLDER UI" alpha 0.45)
-    PlayerEnergyText (TMP 36pt bold top-left  "ENERGY: --")
-    EnemyEnergyText  (TMP 36pt bold top-right "ENERGY: --")
-    PlayerRoster     (mid-left panel 220x540)
-      Header           (TMP "PLAYER")
-      PlayerRow_0..4   (Image + Label TMP "Pet N Lv.--")
-      PlayerActiveIndicator (Image, hidden until Part 2)
-    EnemyRoster      (mid-right, mirrored)
-      Header           (TMP "ENEMY")
-      EnemyRow_0..4    (Image + Label TMP "Pet N Lv.--")
-      EnemyActiveIndicator (Image, hidden until Part 2)
-    PlayerActiveCard (bottom-left 340x140)
-      Title/Sub/Ability TMPs ("Active: Pet --" / "Ball x--" / "Ability: --")
-    EnemyActiveCard  (bottom-right, mirrored)
-    RoundScoreText   (bottom-center above DROP, "0 | 0")
-    BucketLabelsPlayer (5x BucketValuePlayer_N "--")
-    BucketLabelsEnemy  (5x BucketValueEnemy_N "--")
-    WinnerOverlay    (full-canvas dim, SetActive false; child WinnerText 96pt)
-EventSystem        (UnityEngine.EventSystems - existing UI input)
+Boot.unity
+  GameEventSystem  (Pawchinko.EventSystem, persistent)
+  GameManager      (Pawchinko.GameManager + SceneFlowManager, persistent)
+
+Overworld.unity
+  Directional Light, Global Volume
+  Main Camera + CinemachineCamera
+  EventSystem      (UnityEngine.EventSystems - UI input)
+  Environment      (Game Corner model, BoxWooden, disabled Plane)
+  Player           (CharacterController + OverworldPlayerController)
+  Managers         (OverworldManager)
+
+Battle.unity
+  Directional Light, Global Volume, Main Camera
+  EventSystem      (UnityEngine.EventSystems - battle UI input)
+  Managers         (BattleSceneRoot, BattleManager, BoardManager, BallManager,
+                    ScoringManager, EnergyManager, UIManager)
+  Boards           (PlayerBoard + EnemyBoard, spawners, pegs, slots)
+  Canvas/BattleHud (temp Start/Exit/Drop controls, roster, energy, score, winner)
 ```
 
 ## Implemented systems
@@ -120,7 +101,8 @@ EventSystem        (UnityEngine.EventSystems - existing UI input)
 | System | Status | Files | Design ref |
 |---|---|---|---|
 | Event bus (pub/sub) | MVP | `Core/EventSystem.cs`, `Core/Events.cs` | [AI_AGENT_CODE_GUIDE](Desgin/AI_AGENT_CODE_GUIDE.md) Section 9 |
-| Manager bootstrap | MVP | `Managers/GameManager.cs` | [AI_AGENT_CODE_GUIDE](Desgin/AI_AGENT_CODE_GUIDE.md) Section 7 |
+| Manager bootstrap | MVP | `Managers/GameManager.cs`, `Managers/BattleSceneRoot.cs` | [AI_AGENT_CODE_GUIDE](Desgin/AI_AGENT_CODE_GUIDE.md) Section 7 |
+| Boot/Overworld/Battle scene split | MVP | `Scenes/{Boot,Overworld,Battle}.unity`, `Managers/SceneFlowManager.cs` | [AI_AGENT_CODE_GUIDE](Desgin/AI_AGENT_CODE_GUIDE.md) Section 8 |
 | Round-based battle flow (1 ball/side, simultaneous drop, looping) | MVP | `Managers/BattleManager.cs` | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 5 (subset) |
 | Physics drop (Rigidbody ball, peg field, wall, slot trigger) | MVP | `Gameplay/Battle/*.cs`, `Ball.prefab`, layer matrix | [PHYSICS_DROP_GUIDE](Desgin/PHYSICS_DROP_GUIDE.md) Sections 2-7 |
 | Board procedural geometry (in-editor build) | MVP | Not codified yet - currently baked by MCP scene-build pass | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 12 |
@@ -131,9 +113,7 @@ EventSystem        (UnityEngine.EventSystems - existing UI input)
 | Modifier hook (`IBallModifier`) | NOT STARTED | - | [PHYSICS_DROP_GUIDE](Desgin/PHYSICS_DROP_GUIDE.md) Section 9 |
 | Creatures, Stats, Ball Profiles | NOT STARTED | - | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Sections 8-11 |
 | Abilities | NOT STARTED | - | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 13 |
-| Overworld | NOT STARTED | - | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 4 |
-| Boot/Overworld/Battle scene split | NOT STARTED | - | [AI_AGENT_CODE_GUIDE](Desgin/AI_AGENT_CODE_GUIDE.md) Section 8 |
-| `SceneFlowManager` | NOT STARTED | - | [AI_AGENT_CODE_GUIDE](Desgin/AI_AGENT_CODE_GUIDE.md) Section 8 |
+| Overworld | MVP shell | `Scenes/Overworld.unity`, `Managers/OverworldManager.cs`, `Gameplay/Overworld/OverworldPlayerController.cs` | [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Section 4 |
 
 ## Known gaps and TBDs
 
@@ -156,7 +136,7 @@ EventSystem        (UnityEngine.EventSystems - existing UI input)
 1. Read the three design docs first. Do **not** invent values for any TBD without asking the user.
 2. New scripts: follow the manager pattern in [AI_AGENT_CODE_GUIDE.md](Desgin/AI_AGENT_CODE_GUIDE.md) Section 7. Subscribe in `Initialize`, unsubscribe in `OnDestroy`.
 3. New events: add to `Core/Events.cs`, name ends in `Event`, past tense for "happened".
-4. New gameplay code: place under `Gameplay/Battle/` (battle scope) - **never** import overworld code from battle code or vice versa.
+4. New gameplay code: place under the correct scene folder (`Gameplay/Overworld/` or `Gameplay/Battle/`) - **never** import overworld code from battle code or vice versa.
 5. New assets: place under `VisualAssets/<Category>/<Family>/`. Don't drop files into the wrong category.
 6. When adding scene content via Unity MCP `Unity_RunCommand`:
    - Class must be `internal class CommandScript : IRunCommand`.
@@ -171,7 +151,7 @@ EventSystem        (UnityEngine.EventSystems - existing UI input)
 ## Next milestones (priority order)
 
 1. **Creatures (data only)** - `Paw` `[Serializable]` data class, ScriptableObject `PawDefinition` for static data. Replace `PlaceholderPet` + `EnergyManager.placeholderEnergyPerPet` + `BoardScoringConfig.slotValues` placeholders with real per-creature `Energy Value` + canonical bucket layouts. See [PAWCHINKO_DESIGN_GUIDE](Desgin/PAWCHINKO_DESIGN_GUIDE.md) Sections 8 + 12 (will need user input on TBDs).
-2. **Boot/Overworld/Battle scene split** - introduce `Boot.unity`, `Overworld.unity`, move battle assets into `Battle.unity`, wire `SceneFlowManager`. See [AI_AGENT_CODE_GUIDE](Desgin/AI_AGENT_CODE_GUIDE.md) Section 8.
+2. **First encounter trigger** - add a minimal `EncounterZone` in `Gameplay/Overworld/` that publishes `EncounterTriggeredEvent` and supplies whatever payload the design settles on.
 3. **First ability + `IBallModifier` implementation** - any of the worked examples in [PHYSICS_DROP_GUIDE](Desgin/PHYSICS_DROP_GUIDE.md) Sections 10-13 makes a good first one. Wire ability selection into the round flow before the drop.
 4. **Per-creature ball-count contribution** - replace the hardcoded "1 ball per side per round" with the sum of each side's active-pet ball contribution. Update `BattleHud.UpdateActiveCard.Sub` to display the real ball count. Depends on milestone 1.
 5. **3D creature stage** - replace the 2D roster strips with 5x 3D creature meshes per side along the outer board edges per [PAWCHINKO_DESIGN_GUIDE Section 6](Desgin/PAWCHINKO_DESIGN_GUIDE.md). Roster strip drops back to a thin name/level overlay.
@@ -183,6 +163,18 @@ Completed since last review:
 ## Change log
 
 (Reverse chronological. One entry per agent session.)
+
+### 2026-04-28 - Cursor agent (GPT-5.5) - Boot / Overworld / Battle scene split
+
+Implemented the scene architecture from [AI_AGENT_CODE_GUIDE Section 8](Desgin/AI_AGENT_CODE_GUIDE.md#8-scene-architecture) and promoted the checked-in Overworld player controller out of `Scripts/Temp`.
+
+- **Scene flow**: added `EncounterTriggeredEvent`, `OverworldPausedEvent`, `OverworldResumedEvent`, and `SceneFlowManager`. `SceneFlowManager` is the only script that calls `SceneManager.LoadSceneAsync` / `UnloadSceneAsync`.
+- **Boot**: added `Assets/Scenes/Boot.unity` with persistent `GameManager`, `GameEventSystem`, and `SceneFlowManager`; updated build settings to `Boot`, `Overworld`, `Battle`.
+- **Overworld**: wired `OverworldManager` into `Assets/Scenes/Overworld.unity`; replaced `SimpleTopDownController` with `OverworldPlayerController` under `Gameplay/Overworld/`; removed the old `Scripts/Temp` script asset.
+- **Battle**: created `Assets/Scenes/Battle.unity` from the existing battle scene content, removed Boot-only `GameManager` / `GameEventSystem`, and added `BattleSceneRoot` to preserve manager initialization order.
+- **Docs**: updated this log and the scene-scoped manager description in `AI_AGENT_CODE_GUIDE.md`.
+
+Verified via Unity MCP: `Boot.unity`, `Overworld.unity`, and `Battle.unity` each have the expected root boundaries, zero missing scripts, and the expected manager/component counts. Compile check succeeded after script import.
 
 ### 2026-04-24 - Cursor agent (Claude Opus 4.7) - Bucket visuals + BattleManager.OnBallSettled cleanup
 

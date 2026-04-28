@@ -1,6 +1,28 @@
 namespace Pawchinko
 {
     /// <summary>
+    /// Published by overworld content when gameplay should transition into a battle instance.
+    /// Payload stays empty until encounter data is designed.
+    /// </summary>
+    public class EncounterTriggeredEvent
+    {
+    }
+
+    /// <summary>
+    /// Published by SceneFlowManager before the additive battle scene loads.
+    /// </summary>
+    public class OverworldPausedEvent
+    {
+    }
+
+    /// <summary>
+    /// Published by SceneFlowManager after the battle scene unloads.
+    /// </summary>
+    public class OverworldResumedEvent
+    {
+    }
+
+    /// <summary>
     /// Published by BattleManager when a battle begins. Cross-system gameplay broadcast
     /// (EnergyManager seeds team energy, future systems may also react). Not a UI input.
     /// </summary>

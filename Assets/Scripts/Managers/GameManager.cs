@@ -3,8 +3,8 @@ using UnityEngine;
 namespace Pawchinko
 {
     /// <summary>
-    /// Root composition object. Owns the EventSystem reference and initializes every sub-manager
-    /// in a known order. In MVP we live in SampleScene; later this moves to Boot.unity.
+    /// Persistent Boot composition object. Owns always-alive systems and accepts registration
+    /// from scene-scoped managers as Overworld and Battle scenes load.
     /// </summary>
     public class GameManager : MonoBehaviour
     {
@@ -14,7 +14,12 @@ namespace Pawchinko
         [Header("Event System")]
         [SerializeField] private EventSystem eventSystem;
 
-        [Header("Managers")]
+        [Header("Persistent Managers")]
+        [SerializeField] private SceneFlowManager sceneFlowManager;
+
+        [Header("Scene Managers (read-only at runtime)")]
+        [SerializeField] private OverworldManager overworldManager;
+        [SerializeField] private BattleSceneRoot battleSceneRoot;
         [SerializeField] private BattleManager battleManager;
         [SerializeField] private BoardManager boardManager;
         [SerializeField] private BallManager ballManager;
@@ -23,6 +28,9 @@ namespace Pawchinko
         [SerializeField] private UIManager uiManager;
 
         public EventSystem EventSystem => eventSystem;
+        public SceneFlowManager SceneFlowManager => sceneFlowManager;
+        public OverworldManager OverworldManager => overworldManager;
+        public BattleSceneRoot BattleSceneRoot => battleSceneRoot;
         public BattleManager BattleManager => battleManager;
         public BoardManager BoardManager => boardManager;
         public BallManager BallManager => ballManager;
@@ -38,6 +46,7 @@ namespace Pawchinko
                 return;
             }
             _instance = this;
+            DontDestroyOnLoad(gameObject);
 
 #if !UNITY_EDITOR
             Debug.unityLogger.logEnabled = false;
@@ -48,35 +57,75 @@ namespace Pawchinko
                 eventSystem = EventSystem.Instance;
             }
 
-            InitializeManagers();
+            InitializePersistentManagers();
         }
 
-        private void InitializeManagers()
+        /// <summary>
+        /// Registers the currently loaded overworld scene manager.
+        /// </summary>
+        public void RegisterOverworldManager(OverworldManager manager)
         {
-            // Order matters: subscribers (Scoring, Energy) must be alive before publishers.
-            // BattleManager.StartBattle() (called directly by the HUD's Start button) publishes
-            // BattleStartedEvent then RoundStartedEvent synchronously - EnergyManager must already
-            // be subscribed. UIManager is initialized last so the HUD subscribes to its gameplay
-            // events before BattleManager's first publish on the first OnStartClicked.
-            if (boardManager != null) boardManager.Initialize(eventSystem);
-            else Debug.LogError("[GameManager] BoardManager not assigned in Inspector!");
+            overworldManager = manager;
+            if (overworldManager != null)
+            {
+                overworldManager.Initialize(eventSystem);
+                Debug.Log("[GameManager] OverworldManager registered");
+            }
+        }
 
-            if (ballManager != null) ballManager.Initialize(eventSystem);
-            else Debug.LogError("[GameManager] BallManager not assigned in Inspector!");
+        /// <summary>
+        /// Clears the overworld manager reference when the scene unloads.
+        /// </summary>
+        public void DeregisterOverworldManager(OverworldManager manager)
+        {
+            if (overworldManager != manager) return;
+            overworldManager = null;
+            Debug.Log("[GameManager] OverworldManager deregistered");
+        }
 
-            if (scoringManager != null) scoringManager.Initialize(eventSystem);
-            else Debug.LogError("[GameManager] ScoringManager not assigned in Inspector!");
+        /// <summary>
+        /// Registers and initializes the loaded battle scene root.
+        /// </summary>
+        public void RegisterBattleScene(BattleSceneRoot root)
+        {
+            battleSceneRoot = root;
+            if (battleSceneRoot == null) return;
 
-            if (energyManager != null) energyManager.Initialize(eventSystem);
-            else Debug.LogError("[GameManager] EnergyManager not assigned in Inspector!");
+            boardManager = root.BoardManager;
+            ballManager = root.BallManager;
+            scoringManager = root.ScoringManager;
+            energyManager = root.EnergyManager;
+            battleManager = root.BattleManager;
+            uiManager = root.UIManager;
 
-            if (battleManager != null) battleManager.Initialize(eventSystem);
-            else Debug.LogError("[GameManager] BattleManager not assigned in Inspector!");
+            battleSceneRoot.Initialize(eventSystem);
+            Debug.Log("[GameManager] Battle scene registered");
+        }
 
-            if (uiManager != null) uiManager.Initialize(eventSystem);
-            else Debug.LogError("[GameManager] UIManager not assigned in Inspector!");
+        /// <summary>
+        /// Clears battle references when the additive battle scene unloads.
+        /// </summary>
+        public void DeregisterBattleScene(BattleSceneRoot root)
+        {
+            if (battleSceneRoot != root) return;
 
-            Debug.Log("[GameManager] All managers initialized");
+            battleSceneRoot = null;
+            battleManager = null;
+            boardManager = null;
+            ballManager = null;
+            scoringManager = null;
+            energyManager = null;
+            uiManager = null;
+
+            Debug.Log("[GameManager] Battle scene deregistered");
+        }
+
+        private void InitializePersistentManagers()
+        {
+            if (sceneFlowManager != null) sceneFlowManager.Initialize(eventSystem);
+            else Debug.LogError("[GameManager] SceneFlowManager not assigned in Inspector!");
+
+            Debug.Log("[GameManager] Persistent managers initialized");
         }
     }
 }

@@ -114,11 +114,15 @@ namespace Pawchinko
 
         private void OnExitClicked()
         {
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#else
-            Application.Quit();
-#endif
+            // Player flees the battle: end with Enemy as winner so SceneFlowManager unloads
+            // Battle and resumes Overworld via the standard BattleEndedEvent flow.
+            if (eventSystem == null)
+            {
+                Debug.LogError("[BattleHud] EventSystem unavailable, cannot exit battle.");
+                return;
+            }
+            if (exitButton != null) exitButton.interactable = false;
+            eventSystem.Publish(new BattleEndedEvent(Side.Enemy));
         }
 
         private void OnDropClicked()

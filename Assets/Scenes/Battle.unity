@@ -866,7 +866,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 73b4c1b6201538a46a109610cef6da85, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Pawchinko::Pawchinko.ScoringManager
-  eventSystem: {fileID: 695221491}
+  eventSystem: {fileID: 0}
   scoring:
     slotValues: 0100000003000000050000000300000001000000
   currentRound: 0
@@ -2794,7 +2794,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 63e6e835e5d1c04408a77dc6e73ebbdd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Pawchinko::Pawchinko.EnergyManager
-  eventSystem: {fileID: 695221491}
+  eventSystem: {fileID: 0}
   placeholderEnergyPerPet: 10
   petsPerSide: 5
   playerEnergy: 0
@@ -5532,7 +5532,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 90eee02012243e442981424701030b75, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Pawchinko::Pawchinko.UIManager
-  eventSystem: {fileID: 695221491}
+  eventSystem: {fileID: 0}
   battleHud: {fileID: 556217637}
 --- !u!1 &555881775
 GameObject:
@@ -5667,7 +5667,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 904dedf3f4e319d4d903791ea05567f5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Pawchinko::Pawchinko.BattleHud
-  eventSystem: {fileID: 695221491}
+  eventSystem: {fileID: 0}
   startButton: {fileID: 889691025}
   exitButton: {fileID: 134909158}
   dropButton: {fileID: 150283583}
@@ -6736,50 +6736,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 676640914}
   m_CullTransparentMesh: 1
---- !u!1 &695221490
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 695221492}
-  - component: {fileID: 695221491}
-  m_Layer: 0
-  m_Name: GameEventSystem
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &695221491
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 695221490}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ebd1f589e322b4849ae3f15f2a4e4f2d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Pawchinko::Pawchinko.EventSystem
---- !u!4 &695221492
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 695221490}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1506463431}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &702659514
 GameObject:
   m_ObjectHideFlags: 0
@@ -8434,7 +8390,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 984ce72c9ad5c9e4f9a50acf5d360359, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Pawchinko::Pawchinko.BattleManager
-  eventSystem: {fileID: 695221491}
+  eventSystem: {fileID: 0}
   playerTeam:
   - petName: Pet 1
     level: 1
@@ -10674,57 +10630,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1324067187}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!1 &1342611602
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1342611603}
-  - component: {fileID: 1342611604}
-  m_Layer: 0
-  m_Name: GameManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1342611603
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1342611602}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1506463431}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1342611604
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1342611602}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: efa61812a67f23c43a084ccd94a992d6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Pawchinko::Pawchinko.GameManager
-  eventSystem: {fileID: 695221491}
-  battleManager: {fileID: 925911481}
-  boardManager: {fileID: 1701174390}
-  ballManager: {fileID: 2113106118}
-  scoringManager: {fileID: 113714383}
-  energyManager: {fileID: 315258905}
-  uiManager: {fileID: 547488178}
 --- !u!1 &1359926603
 GameObject:
   m_ObjectHideFlags: 0
@@ -11706,6 +11611,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1506463431}
+  - component: {fileID: 1506463432}
   m_Layer: 0
   m_Name: Managers
   m_TagString: Untagged
@@ -11726,8 +11632,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 695221492}
-  - {fileID: 1342611603}
   - {fileID: 925911480}
   - {fileID: 1701174389}
   - {fileID: 2113106117}
@@ -11736,6 +11640,24 @@ Transform:
   - {fileID: 315258904}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1506463432
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1506463430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec42b031bff632941b88d9f1ca773f8a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.BattleSceneRoot
+  boardManager: {fileID: 1701174390}
+  ballManager: {fileID: 2113106118}
+  scoringManager: {fileID: 113714383}
+  energyManager: {fileID: 315258905}
+  battleManager: {fileID: 925911481}
+  uiManager: {fileID: 547488178}
 --- !u!1 &1509229442
 GameObject:
   m_ObjectHideFlags: 0
@@ -13865,7 +13787,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3887294bdf74b294bb92b71428108da4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Pawchinko::Pawchinko.BoardManager
-  eventSystem: {fileID: 695221491}
+  eventSystem: {fileID: 0}
   playerSpawner: {fileID: 2110118942}
   enemySpawner: {fileID: 1518403995}
 --- !u!1 &1702607587
@@ -17434,7 +17356,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e12aa78a4cfa7f644af02353b4736bfa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Pawchinko::Pawchinko.BallManager
-  eventSystem: {fileID: 695221491}
+  eventSystem: {fileID: 0}
+  boardManager: {fileID: 1701174390}
 --- !u!1 &2137485451
 GameObject:
   m_ObjectHideFlags: 0
