@@ -8,6 +8,8 @@ namespace Pawchinko
     /// </summary>
     public class GameManager : MonoBehaviour
     {
+        public const string GameVersion = "0.0.1";
+
         private static GameManager _instance;
         public static GameManager Instance => _instance;
 

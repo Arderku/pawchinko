@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/UI/Uss/Components/GameVersion.uss" />
+    <ui:VisualElement name="gameVersionRoot" picking-mode="Ignore" class="game-version__root">
+        <ui:VisualElement name="gameVersionPanel" picking-mode="Ignore" class="game-version__panel">
+            <ui:Label text="v: ..." name="gameVersionText" class="game-version__text" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

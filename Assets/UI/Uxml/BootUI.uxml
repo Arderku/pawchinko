@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Template name="GameVersionUI" src="project://database/Assets/UI/Uxml/Components/GameVersionUI.uxml" />
+    <Style src="project://database/Assets/UI/Uss/Base/Tokens.uss" />
+    <ui:VisualElement name="bootRoot" picking-mode="Ignore" style="flex-grow: 1;">
+        <ui:Instance template="GameVersionUI" name="GameVersionUI" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>
