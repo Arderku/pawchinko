@@ -237,6 +237,21 @@ so.ApplyModifiedPropertiesWithoutUndo();
 
 - **Notes**: never reference the `PascalCase` property name (`EventSystem`) for `FindProperty` - it won't resolve. Only the field-storage name works.
 
+### 15 - GUID-preserving asset moves and renames
+
+- **Symptom**: After moving or renaming an asset (e.g. moving `Assets/UI/Foo.uxml` into a subfolder, or renaming `PanelSettings.asset`), scene/prefab references to that asset become missing or get reassigned to "None" in the Inspector.
+- **Cause**: Filesystem moves (drag-in-Explorer, `mv`, PowerShell `Move-Item`, IDE Delete-and-Write) detach the `.meta` file from the asset, so Unity treats the destination as a brand-new asset with a fresh GUID. Anything referencing the old GUID then silently breaks.
+- **Fix**: Always move/rename via `AssetDatabase.MoveAsset(oldPath, newPath)` from a CommandScript. The `.meta` (and therefore the GUID) follows the asset, and every scene/prefab reference resolves seamlessly. `MoveAsset` returns an empty string on success; a non-empty return is the error message - log and bail.
+
+```csharp
+string err = AssetDatabase.MoveAsset(
+    "Assets/UI/Foo.uxml",
+    "Assets/UI/Uxml/Components/Foo.uxml");
+if (!string.IsNullOrEmpty(err)) { result.LogError("Move failed: " + err); return; }
+```
+
+- **Notes**: Folders also move via `MoveAsset` (treat them as assets). Pair with the `EnsureFolder` helper from the [Idempotency patterns](#idempotency-patterns) section to ensure the destination folder exists first. Same rule applies to `AssetDatabase.RenameAsset` and `AssetDatabase.MoveAssetToTrash`.
+
 ---
 
 ## Pre-flight checklist

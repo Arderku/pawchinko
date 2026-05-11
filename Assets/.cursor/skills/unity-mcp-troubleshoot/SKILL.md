@@ -23,6 +23,7 @@ When an MCP tool fails or returns unexpected output, find the symptom in the tab
 | 12 | Confusion between `UnityEngine.EventSystems.EventSystem` and `Pawchinko.EventSystem` | Same short name, two responsibilities | Name the project bus GameObject `GameEventSystem`; fully qualify `using` directives when both are referenced ([Issue 12](../../../Docs~/UNITY_MCP_HELPER.md#12---two-eventsystem-types-coexist)) |
 | 13 | Silent failure or odd error from `AssetDatabase.CreateAsset` with a path whose folder doesn't exist | `CreateAsset` does not auto-create folders | Use the `EnsureFolder` helper before `CreateAsset` ([Issue 13](../../../Docs~/UNITY_MCP_HELPER.md#13---asset-folders-must-exist-before-createasset)) |
 | 14 | `[SerializeField] private` Inspector ref stays null after CommandScript "assigns" it; or `FindProperty` returns null | `SerializedObject` walks fields by storage name (lowercase field), not the PascalCase property | Use `so.FindProperty("eventSystem")` for `[SerializeField] private EventSystem eventSystem;` ([Issue 14](../../../Docs~/UNITY_MCP_HELPER.md#14---wiring-serializefield-private-refs-from-a-commandscript)) - see also the `unity-serialized-field-wire` skill |
+| 15 | Scene/prefab reference to a moved or renamed asset becomes missing or reassigned to "None" | Filesystem moves detach the `.meta` and assign a new GUID | Use `AssetDatabase.MoveAsset(old, new)` from a CommandScript; never raw filesystem moves ([Issue 15](../../../Docs~/UNITY_MCP_HELPER.md#15---guid-preserving-asset-moves-and-renames)) |
 
 ## Safety rule
 
