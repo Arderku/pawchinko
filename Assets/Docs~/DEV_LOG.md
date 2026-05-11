@@ -164,6 +164,11 @@ Completed since last review:
 
 (Reverse chronological. One entry per agent session.)
 
+### 2026-05-11 - Cursor agent - UI Toolkit (Boot) + UI agent skills
+
+- **Boot UI / game version**: basic UI Toolkit panel for the version string, recommended folder layout (`Uxml/Components`, `Uss/Components`, `PanelSettings`), `PanelSettings` on the Boot `UIDocument`, `GameManager.GameVersion` (`0.0.1`), `UIView` + scene `UIDocument` manager (`Scripts/UI/`), version label wired from code.
+- **Agent docs**: three skills in `Assets/.cursor/skills/` — `unity-ui-view-pattern`, `unity-ui-uss-pitfalls`, `unity-ui-uxml-structure` (mirror [UI-Notes](UI-Notes/README.md)); [UNITY_MCP_HELPER.md](UNITY_MCP_HELPER.md) Issue 15 — move/rename assets with `AssetDatabase.MoveAsset` so GUIDs/refs stay valid; troubleshoot skill table row + README “AI agent helpers” cross-links.
+
 ### 2026-04-28 - Cursor agent (GPT-5.5) - Boot / Overworld / Battle scene split
 
 Implemented the scene architecture from [AI_AGENT_CODE_GUIDE Section 8](Desgin/AI_AGENT_CODE_GUIDE.md#8-scene-architecture) and promoted the checked-in Overworld player controller out of `Scripts/Temp`.
