@@ -16,6 +16,7 @@ namespace Pawchinko
 
         public int Id => id;
         public Side Side => side;
+        public Pom SourcePom { get; private set; }
         public Rigidbody Body { get; private set; }
 
         private bool _hasSettled;
@@ -28,12 +29,15 @@ namespace Pawchinko
         }
 
         /// <summary>
-        /// Initialises the ball with its id and the side that spawned it. Called by BallSpawner.
+        /// Initialises the ball with its id, the side that spawned it, and the Pom that owns
+        /// it. The source Pom carries through to BallSettledEvent so scoring can apply its
+        /// stats (Power, etc.) when this ball lands.
         /// </summary>
-        public void Init(int id, Side side)
+        public void Init(int id, Side side, Pom sourcePom)
         {
             this.id = id;
             this.side = side;
+            SourcePom = sourcePom;
             _hasSettled = false;
         }
 

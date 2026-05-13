@@ -4,7 +4,10 @@ namespace Pawchinko
 {
     /// <summary>
     /// Accumulates per-side ball scores during a round and publishes RoundScoredEvent once both
-    /// sides have settled. Slot values come from the placeholder BoardScoringConfig.
+    /// sides have settled every ball they spawned. Expected counts arrive via DropRequestedEvent;
+    /// per-ball value is the placeholder slot value scaled by the active Pom's Power stat
+    /// (PAWCHINKO_DESIGN_GUIDE Section 14: Score = BucketValue * Power * Modifiers - modifier
+    /// math lands when abilities resolve).
     /// </summary>
     public class ScoringManager : MonoBehaviour
     {
@@ -18,13 +21,16 @@ namespace Pawchinko
         [SerializeField] private int currentRound;
         [SerializeField] private int playerRoundScore;
         [SerializeField] private int enemyRoundScore;
-        [SerializeField] private bool playerSettled;
-        [SerializeField] private bool enemySettled;
+        [SerializeField] private int playerExpected;
+        [SerializeField] private int enemyExpected;
+        [SerializeField] private int playerLanded;
+        [SerializeField] private int enemyLanded;
 
         public void Initialize(EventSystem eventSystem)
         {
             this.eventSystem = eventSystem;
             this.eventSystem.Subscribe<RoundStartedEvent>(OnRoundStarted);
+            this.eventSystem.Subscribe<DropRequestedEvent>(OnDropRequested);
             this.eventSystem.Subscribe<BallSettledEvent>(OnBallSettled);
 
             currentRound = 0;
@@ -39,23 +45,36 @@ namespace Pawchinko
             ResetRoundAccumulators();
         }
 
+        private void OnDropRequested(DropRequestedEvent evt)
+        {
+            playerExpected = evt.PlayerBallCount;
+            enemyExpected = evt.EnemyBallCount;
+            playerLanded = 0;
+            enemyLanded = 0;
+        }
+
         private void OnBallSettled(BallSettledEvent evt)
         {
-            int value = LookupSlotValue(evt.SlotIndex);
+            int slotValue = LookupSlotValue(evt.SlotIndex);
+            int scored = ScaleByPomPower(evt.SourcePom, slotValue);
+
             if (evt.Side == Side.Player)
             {
-                playerRoundScore += value;
-                playerSettled = true;
+                playerRoundScore += scored;
+                playerLanded++;
             }
             else
             {
-                enemyRoundScore += value;
-                enemySettled = true;
+                enemyRoundScore += scored;
+                enemyLanded++;
             }
 
-            Debug.Log($"[ScoringManager] {evt.Side} slot={evt.SlotIndex} value={value} (round={currentRound})");
+            string pomName = evt.SourcePom != null && evt.SourcePom.Definition != null ? evt.SourcePom.Definition.DisplayName : "(null)";
+            Debug.Log($"[ScoringManager] {evt.Side} {pomName} slot={evt.SlotIndex} slotValue={slotValue} scored={scored} (round={currentRound} {playerLanded}/{playerExpected} {enemyLanded}/{enemyExpected})");
 
-            if (playerSettled && enemySettled)
+            if (playerExpected > 0 && enemyExpected > 0
+                && playerLanded >= playerExpected
+                && enemyLanded >= enemyExpected)
             {
                 eventSystem.Publish(new RoundScoredEvent(currentRound, playerRoundScore, enemyRoundScore));
             }
@@ -68,18 +87,29 @@ namespace Pawchinko
             return scoring.slotValues[slotIndex];
         }
 
+        private static int ScaleByPomPower(Pom pom, int slotValue)
+        {
+            if (pom == null || pom.Definition == null || pom.Definition.BaseStats == null) return slotValue;
+            float power = pom.Definition.BaseStats.power;
+            if (power <= 0f) return slotValue;
+            return Mathf.RoundToInt(slotValue * power);
+        }
+
         private void ResetRoundAccumulators()
         {
             playerRoundScore = 0;
             enemyRoundScore = 0;
-            playerSettled = false;
-            enemySettled = false;
+            playerExpected = 0;
+            enemyExpected = 0;
+            playerLanded = 0;
+            enemyLanded = 0;
         }
 
         private void OnDestroy()
         {
             if (eventSystem == null) return;
             eventSystem.Unsubscribe<RoundStartedEvent>(OnRoundStarted);
+            eventSystem.Unsubscribe<DropRequestedEvent>(OnDropRequested);
             eventSystem.Unsubscribe<BallSettledEvent>(OnBallSettled);
         }
     }

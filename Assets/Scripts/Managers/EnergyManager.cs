@@ -3,18 +3,14 @@ using UnityEngine;
 namespace Pawchinko
 {
     /// <summary>
-    /// Owns team-summed energy. Seeds on BattleStartedEvent (placeholderEnergyPerPet * petsPerSide),
-    /// applies the per-round score diff (PAWCHINKO_DESIGN_GUIDE Section 7), and ends the battle
-    /// on energy &lt;= 0. All values are explicitly placeholder until creature data exists.
+    /// Owns team-summed energy. Seeds on BattleStartedEvent from the sum of every Pom's
+    /// BaseEnergy across the full roster (active + bench), per PAWCHINKO_DESIGN_GUIDE
+    /// Section 7. Applies the per-round score diff and ends the battle on energy &lt;= 0.
     /// </summary>
     public class EnergyManager : MonoBehaviour
     {
         [Header("References")]
         [SerializeField] private EventSystem eventSystem;
-
-        [Header("Placeholder Tuning")]
-        [SerializeField] private int placeholderEnergyPerPet = 10;
-        [SerializeField] private int petsPerSide = 5;
 
         [Header("State (read-only at runtime)")]
         [SerializeField] private int playerEnergy;
@@ -40,13 +36,35 @@ namespace Pawchinko
 
         private void OnBattleStarted(BattleStartedEvent evt)
         {
-            int starting = placeholderEnergyPerPet * petsPerSide;
-            playerEnergy = starting;
-            enemyEnergy = starting;
+            playerEnergy = LookupStartingEnergy(Side.Player);
+            enemyEnergy = LookupStartingEnergy(Side.Enemy);
             battleActive = true;
 
-            Debug.Log($"[EnergyManager] Battle started - seeding energy {starting} per side");
+            Debug.Log($"[EnergyManager] Battle started - seed P={playerEnergy} E={enemyEnergy}");
             eventSystem.Publish(new EnergyChangedEvent(playerEnergy, enemyEnergy));
+        }
+
+        private int LookupStartingEnergy(Side side)
+        {
+            var battleManager = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
+            if (battleManager == null)
+            {
+                Debug.LogError("[EnergyManager] BattleManager unavailable, cannot seed energy.");
+                return 0;
+            }
+            var roster = battleManager.GetRoster(side);
+            if (roster == null || roster.Count == 0)
+            {
+                Debug.LogError($"[EnergyManager] {side} roster is empty, energy will be 0.");
+                return 0;
+            }
+            int sum = 0;
+            for (int i = 0; i < roster.Count; i++)
+            {
+                var pom = roster[i];
+                if (pom != null && pom.Definition != null) sum += pom.Definition.BaseEnergy;
+            }
+            return sum;
         }
 
         private void OnRoundScored(RoundScoredEvent evt)

@@ -872,8 +872,10 @@ MonoBehaviour:
   currentRound: 0
   playerRoundScore: 0
   enemyRoundScore: 0
-  playerSettled: 0
-  enemySettled: 0
+  playerExpected: 0
+  enemyExpected: 0
+  playerLanded: 0
+  enemyLanded: 0
 --- !u!1 &119300584
 GameObject:
   m_ObjectHideFlags: 0
@@ -2795,8 +2797,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Pawchinko::Pawchinko.EnergyManager
   eventSystem: {fileID: 0}
-  placeholderEnergyPerPet: 10
-  petsPerSide: 5
   playerEnergy: 0
   enemyEnergy: 0
   battleActive: 0
@@ -5684,6 +5684,8 @@ MonoBehaviour:
   - {fileID: 762018502}
   - {fileID: 236250959}
   - {fileID: 508788001}
+  playerRosterRowLabels: []
+  enemyRosterRowLabels: []
   playerActiveIndicator: {fileID: 92739186}
   enemyActiveIndicator: {fileID: 1635956938}
   playerActiveTitleText: {fileID: 274858690}
@@ -8391,32 +8393,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Pawchinko::Pawchinko.BattleManager
   eventSystem: {fileID: 0}
-  playerTeam:
-  - petName: Pet 1
-    level: 1
-  - petName: Pet 2
-    level: 1
-  - petName: Pet 3
-    level: 1
-  - petName: Pet 4
-    level: 1
-  - petName: Pet 5
-    level: 1
-  enemyTeam:
-  - petName: Pet 1
-    level: 1
-  - petName: Pet 2
-    level: 1
-  - petName: Pet 3
-    level: 1
-  - petName: Pet 4
-    level: 1
-  - petName: Pet 5
-    level: 1
+  playerPomDefinitions:
+  - {fileID: 11400000, guid: a42b4d4b1a0ee6845a9701a885165560, type: 2}
+  enemyPomDefinitions:
+  - {fileID: 11400000, guid: a42b4d4b1a0ee6845a9701a885165560, type: 2}
+  playerStartingLevel: 1
+  enemyStartingLevel: 1
   currentRound: 0
   state: 0
-  playerActiveIndex: 0
-  enemyActiveIndex: 0
+  playerRoster: []
+  enemyRoster: []
 --- !u!1 &933673049
 GameObject:
   m_ObjectHideFlags: 0

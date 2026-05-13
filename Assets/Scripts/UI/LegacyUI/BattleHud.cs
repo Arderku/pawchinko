@@ -6,8 +6,10 @@ using UnityEngine.UI;
 namespace Pawchinko
 {
     /// <summary>
-    /// Battle HUD: temp dev controls (Start / Exit / Drop), round counter, placeholder roster
-    /// strips, active-pet card readouts, energy + score readouts, and a winner overlay.
+    /// Battle HUD: temp dev controls (Start / Exit / Drop), round counter, roster strips,
+    /// active-Pom card readouts, energy + score readouts, and a winner overlay. Roster row
+    /// label slots are optional - wire them per-row in the scene to surface Pom name + level;
+    /// leave them empty for the placeholder pre-roster layout.
     /// </summary>
     public class BattleHud : MonoBehaviour
     {
@@ -23,6 +25,10 @@ namespace Pawchinko
         [Header("Roster")]
         [SerializeField] private List<RectTransform> playerRosterRows = new();
         [SerializeField] private List<RectTransform> enemyRosterRows = new();
+        [Tooltip("Optional - per-row labels for the player roster. If wired, populated with each Pom's display name + level.")]
+        [SerializeField] private List<TMP_Text> playerRosterRowLabels = new();
+        [Tooltip("Optional - per-row labels for the enemy roster. If wired, populated with each Pom's display name + level.")]
+        [SerializeField] private List<TMP_Text> enemyRosterRowLabels = new();
         [SerializeField] private RectTransform playerActiveIndicator;
         [SerializeField] private RectTransform enemyActiveIndicator;
 
@@ -143,16 +149,23 @@ namespace Pawchinko
             UpdateRoundText(evt.RoundNumber);
             if (dropButton != null) dropButton.interactable = true;
 
-            UpdateActiveIndicator(playerActiveIndicator, playerRosterRows, evt.PlayerActivePetIndex);
-            UpdateActiveIndicator(enemyActiveIndicator, enemyRosterRows, evt.EnemyActivePetIndex);
+            // The active indicator pins to row 0 (the primary active Pom). The Planning Phase UI
+            // will eventually let the player choose which active row gets the primary indicator.
+            UpdateActiveIndicator(playerActiveIndicator, playerRosterRows, 0);
+            UpdateActiveIndicator(enemyActiveIndicator, enemyRosterRows, 0);
 
             var battleManager = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
             if (battleManager != null)
             {
-                var playerPet = battleManager.GetActivePet(Side.Player);
-                var enemyPet = battleManager.GetActivePet(Side.Enemy);
-                UpdateActiveCard(playerActiveTitleText, playerActiveSubText, playerPet);
-                UpdateActiveCard(enemyActiveTitleText, enemyActiveSubText, enemyPet);
+                var playerRoster = battleManager.GetRoster(Side.Player);
+                var enemyRoster = battleManager.GetRoster(Side.Enemy);
+                PopulateRosterLabels(playerRosterRowLabels, playerRoster);
+                PopulateRosterLabels(enemyRosterRowLabels, enemyRoster);
+
+                var playerActive = battleManager.GetActivePoms(Side.Player);
+                var enemyActive = battleManager.GetActivePoms(Side.Enemy);
+                UpdateActiveCard(playerActiveTitleText, playerActiveSubText, playerActive);
+                UpdateActiveCard(enemyActiveTitleText, enemyActiveSubText, enemyActive);
             }
         }
 
@@ -188,11 +201,44 @@ namespace Pawchinko
             indicator.anchoredPosition = indicatorPos;
         }
 
-        private void UpdateActiveCard(TMP_Text titleText, TMP_Text subText, PlaceholderPet pet)
+        private void UpdateActiveCard(TMP_Text titleText, TMP_Text subText, IReadOnlyList<Pom> activePoms)
         {
-            if (pet == null) return;
-            if (titleText != null) titleText.text = $"Active: {pet.petName} Lv.{pet.level}";
-            if (subText != null) subText.text = "Ball x1";
+            if (activePoms == null || activePoms.Count == 0) return;
+            var primary = activePoms[0];
+            if (primary == null || primary.Definition == null) return;
+
+            int totalBalls = 0;
+            for (int i = 0; i < activePoms.Count; i++)
+            {
+                var p = activePoms[i];
+                if (p != null) totalBalls += p.CurrentBallCount;
+            }
+
+            if (titleText != null)
+            {
+                titleText.text = activePoms.Count > 1
+                    ? $"Active: {primary.Definition.DisplayName} Lv.{primary.Level} (+{activePoms.Count - 1})"
+                    : $"Active: {primary.Definition.DisplayName} Lv.{primary.Level}";
+            }
+            if (subText != null) subText.text = $"{primary.Definition.Type} | Ball x{totalBalls}";
+        }
+
+        private static void PopulateRosterLabels(List<TMP_Text> labels, IReadOnlyList<Pom> roster)
+        {
+            if (labels == null || labels.Count == 0) return;
+            for (int i = 0; i < labels.Count; i++)
+            {
+                var label = labels[i];
+                if (label == null) continue;
+                if (roster != null && i < roster.Count && roster[i] != null && roster[i].Definition != null)
+                {
+                    label.text = $"{roster[i].Definition.DisplayName} Lv.{roster[i].Level}";
+                }
+                else
+                {
+                    label.text = "--";
+                }
+            }
         }
 
         private void HideActiveIndicators()

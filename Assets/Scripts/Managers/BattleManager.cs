@@ -4,13 +4,21 @@ using UnityEngine;
 namespace Pawchinko
 {
     /// <summary>
-    /// Owns the round-based battle state machine. Each round, both sides drop a single ball
-    /// simultaneously; the round only advances once the round has been scored (so energy
-    /// updates land before the next round starts). Battle ends on BattleEndedEvent.
+    /// Owns the round-based battle state machine. Each side enters battle with a flexible
+    /// roster of Poms (1..N). At any moment up to <see cref="MaxActivePoms"/> Poms are active
+    /// (spawning balls, using abilities); the remainder sit on the bench recovering AP. Each
+    /// round, both sides drop the sum of their active Poms' ball-count contributions
+    /// simultaneously; the round only advances once it has been scored. Battle ends on
+    /// BattleEndedEvent.
+    ///
+    /// Pre-Planning-Phase scope: the active set is currently the first <c>min(MaxActivePoms,
+    /// roster.Count)</c> entries; swapping comes with the Planning Phase UI. Players may bring
+    /// fewer than <see cref="MaxActivePoms"/> total Poms - 1, 2, or more all work
+    /// (PAWCHINKO_DESIGN_GUIDE Section 5/6).
     /// </summary>
     public class BattleManager : MonoBehaviour
     {
-        public const int PetsPerSide = 5;
+        public const int MaxActivePoms = 3;
 
         private enum State
         {
@@ -23,19 +31,21 @@ namespace Pawchinko
         [Header("References")]
         [SerializeField] private EventSystem eventSystem;
 
-        [Header("Placeholder Teams")]
-        [SerializeField] private List<PlaceholderPet> playerTeam = new();
-        [SerializeField] private List<PlaceholderPet> enemyTeam = new();
+        [Header("Rosters")]
+        [Tooltip("1..N Pom species the player brings to battle. The first MaxActivePoms entries are active each round; the rest sit on the bench.")]
+        [SerializeField] private List<PomDefinition> playerPomDefinitions = new();
+        [Tooltip("1..N Pom species the enemy brings to battle. Same active/bench split as the player.")]
+        [SerializeField] private List<PomDefinition> enemyPomDefinitions = new();
+        [SerializeField] private int playerStartingLevel = 1;
+        [SerializeField] private int enemyStartingLevel = 1;
 
         [Header("State (read-only at runtime)")]
         [SerializeField] private int currentRound;
         [SerializeField] private State state;
-        [SerializeField] private int playerActiveIndex;
-        [SerializeField] private int enemyActiveIndex;
+        [SerializeField] private List<Pom> playerRoster = new();
+        [SerializeField] private List<Pom> enemyRoster = new();
 
         public int CurrentRound => currentRound;
-        public int PlayerActiveIndex => playerActiveIndex;
-        public int EnemyActiveIndex => enemyActiveIndex;
 
         public void Initialize(EventSystem eventSystem)
         {
@@ -43,43 +53,73 @@ namespace Pawchinko
             this.eventSystem.Subscribe<RoundScoredEvent>(OnRoundScored);
             this.eventSystem.Subscribe<BattleEndedEvent>(OnBattleEnded);
 
-            EnsureDefaultTeams();
+            EnsureRosters();
 
             currentRound = 0;
             state = State.WaitingForStart;
-            playerActiveIndex = 0;
-            enemyActiveIndex = 0;
 
-            Debug.Log("[BattleManager] Initialized");
+            Debug.Log($"[BattleManager] Initialized (P roster={playerRoster.Count}, E roster={enemyRoster.Count})");
         }
 
         /// <summary>
-        /// Returns the currently active placeholder pet for the given side. Read-only convenience
-        /// for the HUD; manager-to-manager state changes still go through events.
+        /// Returns the full roster (active + bench) for the given side.
         /// </summary>
-        public PlaceholderPet GetActivePet(Side side)
+        public IReadOnlyList<Pom> GetRoster(Side side)
         {
-            var team = side == Side.Player ? playerTeam : enemyTeam;
-            int idx = side == Side.Player ? playerActiveIndex : enemyActiveIndex;
-            if (team == null || team.Count == 0) return null;
-            if (idx < 0 || idx >= team.Count) return null;
-            return team[idx];
+            return side == Side.Player ? playerRoster : enemyRoster;
         }
 
-        private void EnsureDefaultTeams()
+        /// <summary>
+        /// Returns the active Poms for the given side - the first
+        /// <see cref="MaxActivePoms"/> entries of the roster, or fewer if the roster is shorter.
+        /// </summary>
+        public IReadOnlyList<Pom> GetActivePoms(Side side)
         {
-            if (playerTeam == null) playerTeam = new List<PlaceholderPet>();
-            if (enemyTeam == null) enemyTeam = new List<PlaceholderPet>();
-            if (playerTeam.Count < PetsPerSide)
+            var roster = side == Side.Player ? playerRoster : enemyRoster;
+            int active = Mathf.Min(MaxActivePoms, roster.Count);
+            // Allocating a small list each call is fine for the current battle cadence; if this
+            // shows up in a hot path later, replace with a pooled buffer.
+            var result = new List<Pom>(active);
+            for (int i = 0; i < active; i++) result.Add(roster[i]);
+            return result;
+        }
+
+        /// <summary>
+        /// Returns the primary active Pom for the given side (first slot of the active set), or
+        /// null if the roster is empty. Convenience for the HUD's single-card display while the
+        /// Planning Phase UI is still TBD.
+        /// </summary>
+        public Pom GetActivePom(Side side)
+        {
+            var roster = side == Side.Player ? playerRoster : enemyRoster;
+            return roster.Count > 0 ? roster[0] : null;
+        }
+
+        private void EnsureRosters()
+        {
+            playerRoster = BuildRoster(Side.Player, playerPomDefinitions, playerStartingLevel);
+            enemyRoster = BuildRoster(Side.Enemy, enemyPomDefinitions, enemyStartingLevel);
+        }
+
+        private List<Pom> BuildRoster(Side side, List<PomDefinition> definitions, int startingLevel)
+        {
+            var roster = new List<Pom>();
+            if (definitions == null || definitions.Count == 0)
             {
-                playerTeam.Clear();
-                for (int i = 0; i < PetsPerSide; i++) playerTeam.Add(new PlaceholderPet($"Pet {i + 1}", 1));
+                Debug.LogError($"[BattleManager] {side} roster is empty - assign at least one PomDefinition in the Inspector!");
+                return roster;
             }
-            if (enemyTeam.Count < PetsPerSide)
+            for (int i = 0; i < definitions.Count; i++)
             {
-                enemyTeam.Clear();
-                for (int i = 0; i < PetsPerSide; i++) enemyTeam.Add(new PlaceholderPet($"Pet {i + 1}", 1));
+                var def = definitions[i];
+                if (def == null)
+                {
+                    Debug.LogError($"[BattleManager] {side} roster slot {i} is null - fix the Inspector list.");
+                    continue;
+                }
+                roster.Add(new Pom(def, startingLevel));
             }
+            return roster;
         }
 
         /// <summary>
@@ -94,18 +134,21 @@ namespace Pawchinko
                 return;
             }
 
+            // Re-seed Pom runtime instances so a restart after BattleOver resets level/exp/abilities.
+            EnsureRosters();
+
             currentRound = 1;
-            playerActiveIndex = 0;
-            enemyActiveIndex = 0;
             state = State.WaitingForDrop;
 
             Debug.Log($"[BattleManager] Battle started - Round {currentRound}");
             eventSystem.Publish(new BattleStartedEvent());
-            eventSystem.Publish(new RoundStartedEvent(currentRound, playerActiveIndex, enemyActiveIndex));
+            eventSystem.Publish(new RoundStartedEvent(currentRound));
         }
 
         /// <summary>
-        /// Triggers the simultaneous drop for the current round. Called directly by UI.
+        /// Triggers the simultaneous drop for the current round. Called directly by UI. Each
+        /// active Pom on each side spawns its current-level ball count; per-ball source-Pom
+        /// info travels with the ball so ScoringManager can apply per-Pom Power.
         /// </summary>
         public void RequestDrop()
         {
@@ -122,13 +165,44 @@ namespace Pawchinko
                 return;
             }
 
+            var playerActive = GetActivePoms(Side.Player);
+            var enemyActive = GetActivePoms(Side.Enemy);
+
+            int playerBalls = CountBalls(playerActive);
+            int enemyBalls = CountBalls(enemyActive);
+
+            if (playerBalls <= 0 || enemyBalls <= 0)
+            {
+                Debug.LogError($"[BattleManager] Drop aborted - non-positive ball total (P={playerBalls} E={enemyBalls}). Check PomDefinition.ballProfile / roster setup.");
+                return;
+            }
+
             state = State.BallsInFlight;
 
-            eventSystem.Publish(new DropRequestedEvent());
-            ballManager.SpawnFor(Side.Player);
-            ballManager.SpawnFor(Side.Enemy);
+            // Publish FIRST so ScoringManager knows expected counts before any BallSettledEvent fires.
+            eventSystem.Publish(new DropRequestedEvent(playerBalls, enemyBalls));
 
-            Debug.Log($"[BattleManager] Round {currentRound} drop - both sides (active P={playerActiveIndex} E={enemyActiveIndex})");
+            SpawnSide(ballManager, Side.Player, playerActive);
+            SpawnSide(ballManager, Side.Enemy, enemyActive);
+
+            Debug.Log($"[BattleManager] Round {currentRound} drop - P={playerBalls} balls ({playerActive.Count} active Poms), E={enemyBalls} balls ({enemyActive.Count} active Poms)");
+        }
+
+        private static int CountBalls(IReadOnlyList<Pom> activePoms)
+        {
+            int total = 0;
+            for (int i = 0; i < activePoms.Count; i++) total += activePoms[i].CurrentBallCount;
+            return total;
+        }
+
+        private static void SpawnSide(BallManager ballManager, Side side, IReadOnlyList<Pom> activePoms)
+        {
+            for (int i = 0; i < activePoms.Count; i++)
+            {
+                var pom = activePoms[i];
+                int count = pom.CurrentBallCount;
+                for (int b = 0; b < count; b++) ballManager.SpawnFor(side, pom);
+            }
         }
 
         private void OnRoundScored(RoundScoredEvent evt)
@@ -139,10 +213,8 @@ namespace Pawchinko
             // arrive after this handler if energy hits 0. We optimistically advance here; the
             // OnBattleEnded handler then pins the state to BattleOver and prevents further drops.
             currentRound++;
-            playerActiveIndex = (playerActiveIndex + 1) % PetsPerSide;
-            enemyActiveIndex = (enemyActiveIndex + 1) % PetsPerSide;
             state = State.WaitingForDrop;
-            eventSystem.Publish(new RoundStartedEvent(currentRound, playerActiveIndex, enemyActiveIndex));
+            eventSystem.Publish(new RoundStartedEvent(currentRound));
         }
 
         private void OnBattleEnded(BattleEndedEvent evt)

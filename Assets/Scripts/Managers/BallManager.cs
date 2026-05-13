@@ -33,8 +33,10 @@ namespace Pawchinko
 
         /// <summary>
         /// Spawns a single ball on the given side via the BoardManager's spawner reference.
+        /// The source Pom is the active Pom that owns this ball; it travels with the ball into
+        /// BallSettledEvent so scoring can apply its stats.
         /// </summary>
-        public Ball SpawnFor(Side side)
+        public Ball SpawnFor(Side side, Pom sourcePom)
         {
             if (boardManager == null)
             {
@@ -50,7 +52,7 @@ namespace Pawchinko
             }
 
             int id = _nextBallId++;
-            Ball ball = spawner.Spawn(id, side);
+            Ball ball = spawner.Spawn(id, side, sourcePom);
             if (ball != null) ball.Settled += OnBallSettled;
             return ball;
         }
@@ -59,7 +61,7 @@ namespace Pawchinko
         {
             ball.Settled -= OnBallSettled;
             if (eventSystem == null) return;
-            eventSystem.Publish(new BallSettledEvent(ball.Id, ball.Side, slot.SlotIndex));
+            eventSystem.Publish(new BallSettledEvent(ball.Id, ball.Side, slot.SlotIndex, ball.SourcePom));
         }
 
         private void OnDestroy()

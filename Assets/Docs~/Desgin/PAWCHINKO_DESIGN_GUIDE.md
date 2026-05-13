@@ -19,7 +19,7 @@
 
 > Elevator pitch for the whole product.
 
-Pawchinko is a hybrid of **creature-collection RPG** and **competitive pachinko battler**. Players explore a top-down world, collect Paw creatures, build teams, and battle other trainers using a physics-driven multi-ball system played on side-by-side plinko boards.
+Pawchinko is a hybrid of **creature-collection RPG** and **competitive pachinko battler**. Players explore a top-down world, collect Pom creatures, build teams, and battle other trainers using a physics-driven multi-ball system played on side-by-side plinko boards.
 
 The core innovation is combining **strategy** (team building, queue order, ability choice) with **controlled randomness** (the physics drop on the board).
 
@@ -71,7 +71,7 @@ The overworld is the persistent slice of the game where the player walks around,
 
 - **Encounter zones** are tagged regions of the overworld (grass patches, caves, water, story trigger volumes, NPC line-of-sight cones, etc.) that can start a 1v1 battle when the player enters or interacts.
 - **Encounter sources**:
-  - **Wild encounters** - random rolls while moving through a zone. Produces a battle against a wild Paw.
+  - **Wild encounters** - random rolls while moving through a zone. Produces a battle against a wild Pom.
   - **Trainer encounters** - scripted or line-of-sight encounters with rival NPC trainers.
   - **Story encounters** - fixed, plot-driven battles tied to specific overworld triggers.
 - Encounter rate, allowed species per zone, and trainer rosters are **design data sets**, authored later. *(TBD: encounter rate formula, per-zone species tables, NPC trainer lineups.)*
@@ -105,26 +105,32 @@ When an encounter triggers:
 
 > What happens inside a single battle, broken down per round.
 
-A battle is a sequence of **rounds**. Each round runs through these phases in order:
+> **Vertical-slice note**: the current implementation runs the data wire-in (flexible 1..N Pom rosters per side, no Planning Phase UI, no AP economy, no ability selection). The phases below describe the target design - matching code is **TBD** and lands in follow-up passes.
 
-1. **Queue / Active Creature Selection** - the player picks which creature(s) act this round and which one is the **Active Creature** (highlighted in the UI, e.g. an indicator arrow next to the active creature's roster row). *(TBD: full queue rules - does the player queue one Active per round while the rest contribute passively, or does the player queue an ordered list? Confirm with design before implementing.)*
-2. **Ability Selection** - exactly **one ability** is selected and locked in for this round. *(TBD: scope of selection - is it the active creature's ability only, or chosen from the team's pooled abilities?)*
-3. **Ball Spawn** - total balls dropped this round equal the sum of every participating creature's ball-count contribution. Each ball inherits the stats and behavior of the creature that spawned it.
-4. **Drop / Physics Resolution** - balls drop through pegs into buckets. From this moment on it is pure physics + already-locked-in modifiers; the player has no further input until resolution completes.
-5. **Scoring** - per-ball scores are tallied and summed into a round score for each side.
-6. **Energy Update** - applies the round score difference to both teams' energy pools (see Section 7).
-7. **End-of-Round Check** - if either team's energy is at or below 0, the battle ends; otherwise advance to the next round.
+Each Pawler enters battle with a **flexible team of 1..N Poms** (per-encounter cap **TBD**). At any moment **up to 3 Poms are active** (on the board, spawning balls, using abilities); any remaining Poms sit on the **bench** (recovering AP, preparing later moves). A Pawler bringing only 1 or 2 Poms is valid - they simply have a smaller active set and no bench. A battle is a sequence of **rounds**, and each round runs through these phases in order:
+
+1. **Planning Phase** - the player can:
+   - Select / swap the active Poms (up to 3) from the team.
+   - Choose abilities / moves for this round (per-active-Pom ability slot - see Section 13; selection scope still **TBD**).
+   - Review the enemy's setup (visible active vs bench, opponent's chosen ability surface - exact visibility rules **TBD**).
+   - Prepare strategy for the upcoming Battle Phase. This is the main strategy phase.
+2. **Battle Phase** - the player presses **BATTLE** to lock in their plan. All active Poms from both sides spawn balls simultaneously; total balls per side = sum of every active Pom's ball-count contribution. From this moment on it is pure physics + already-locked-in modifiers; the player has no further input until resolution completes.
+3. **Drop / Physics Resolution** - balls drop through pegs into buckets, hitting peg modifiers and bucket modifiers from the locked-in abilities.
+4. **Scoring** - per-ball scores are tallied and summed into a round score for each side.
+5. **Energy Update** - applies the round score difference to both teams' energy pools (see Section 7).
+6. **Post-Round** - temporary effects clear, **bench Poms recover AP** (recovery rate **TBD**), then return to the Planning Phase.
+7. **End-of-Round Check** - if either team's energy is at or below 0, the battle ends; otherwise advance to the next Planning Phase.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Setup
-    Setup --> Ability
-    Ability --> Spawn
-    Spawn --> Drop
+    [*] --> Planning
+    Planning --> Battle
+    Battle --> Drop
     Drop --> Resolve
     Resolve --> Energy
-    Energy --> EndCheck
-    EndCheck --> Setup: continue
+    Energy --> PostRound
+    PostRound --> EndCheck
+    EndCheck --> Planning: continue
     EndCheck --> BattleEnd: team energy <= 0
     BattleEnd --> [*]
 ```
@@ -132,6 +138,12 @@ stateDiagram-v2
 - **Round end trigger**: every dropped ball has settled in a bucket or exited the board.
 - **Battle end trigger**: at least one team's summed energy reaches 0 or below.
 - **No fixed round limit.** Battles run as many rounds as it takes for one team's energy to hit zero.
+
+### Active vs bench
+
+- **Active Poms** contribute balls, run abilities, and react visually to round events.
+- **Bench Poms** sit out this round, recover AP, and can be swapped in during the next Planning Phase.
+- Bench rotation is a first-class strategy lever (see Section 15) - strong abilities may require several rounds of saved AP, so deciding who recovers vs who pushes is core to the loop.
 
 ---
 
@@ -158,7 +170,8 @@ The scene is composed of three logical layers. Top layers render in front of low
   - Balls are 3D physics objects that drop through this layer.
 
 - **3D Creature Stage Layer (middle)**
-  - **5 creature 3D models per side**, arranged vertically along the outer edge of each board (left edge for the player team, right edge for the enemy team).
+  - **One 3D model per Pom in the roster, per side**, arranged vertically along the outer edge of each board (left edge for the player team, right edge for the enemy team). With a full bench the strip shows the full team; with a smaller roster the strip is shorter.
+  - The **active Poms (up to 3)** are highlighted; any bench Poms read as dimmed / pulled back. *(TBD: whether bench Poms render in the 3D stage at all or only on the 2D roster strip - confirm with design before implementing.)*
   - These are real 3D meshes with idle animation, NOT 2D portraits.
   - They react visually to round events (cheer on bucket hits, flinch on enemy abilities, etc.).
 
@@ -184,11 +197,11 @@ The scene is composed of three logical layers. Top layers render in front of low
 
 A few rules that are easy to get wrong - restated here so they're impossible to miss:
 
-- **Exactly 5 creatures per side.** Never 4, never 6.
+- **Up to 3 active Poms per side per round.** Roster size itself is flexible (1..N total Poms - per-encounter cap **TBD**); whatever is in the roster beyond the active 3 sits on the bench. A Pawler bringing only 1 or 2 Poms is valid - they fight with that smaller active set and have no bench. Active and bench visual treatment is **TBD**, but "no more than 3 active simultaneously" is binding.
 - **Pegs are round plinko-style pegs**, not stars, sparkles, or abstract dots. Real plinko geometry only.
 - **Energy is team-summed.** Per-creature HP bars are explicitly out of scope - do not add them to the roster strips (see Section 7 and Section 21).
-- **Ball art is type-themed per source creature.** Generic round-ball / "Pokeball" placeholder visuals are not canonical; balls must read as belonging to their source creature's type.
-- **Illustrative values are not canonical.** Any specific creature names, ability names, faction names, bucket numbers, round numbers, or score numbers shown elsewhere in this guide are illustrative examples only. Only positions, components, and counts are binding.
+- **Ball art is type-themed per source Pom.** Generic round-ball / "Pokeball" placeholder visuals are not canonical; balls must read as belonging to their source Pom's type.
+- **Illustrative values are not canonical.** Any specific Pom names, ability names, faction names, bucket numbers, round numbers, or score numbers shown elsewhere in this guide are illustrative examples only. Only positions, components, and counts are binding.
 
 ---
 
@@ -197,36 +210,71 @@ A few rules that are easy to get wrong - restated here so they're impossible to 
 > Energy is the win condition. Health for the team, not the individual.
 
 - Displayed during scoring as `Player | Enemy` (e.g. `87 | 72`, illustrative).
-- **Team-based**: starting team energy = sum of every creature's `Energy Value` stat at battle start.
+- **Team-based**: starting team energy = sum of every Pom's `Energy Value` stat **across the entire roster** (active + bench) at battle start. Bench Poms still contribute to the starting pool even though they are not on the board. A smaller roster therefore has a smaller starting energy pool.
 - **Per-round formula**:
   - `Difference = PlayerScore - EnemyScore`
   - `PlayerEnergy += Difference`
   - `EnemyEnergy -= Difference`
   - (i.e. the round score difference is awarded to the winner and subtracted from the loser.)
 - **Battle ends** when either side's energy drops to 0 or below.
-- Individual creatures **do not** have their own HP bars and **cannot be KO'd individually**.
-- *(TBD: design may later add temporary "knock-out" or "rotation" mechanics. Treat as out of scope for this guide; do not implement speculatively.)*
+- Individual Poms **do not** have their own HP bars and **cannot be KO'd individually**. Swapping a Pom to the bench is a rotation choice, not a knock-out.
 
 ---
 
-## 8. Creatures (Paws)
+## 8. Creatures (Poms)
 
-> What a Paw is and what data defines one.
+> What a Pom is and what data defines one.
 
-A **Paw** is a collectible creature with identity and progression. Each Paw has the following fields:
+A **Pom** is a collectible creature with identity and progression. The data layer mirrors this shape directly: `PomDefinition` (ScriptableObject) holds the static species data, `Pom` (plain `[Serializable]`) is the runtime instance with mutable level / exp / learned abilities.
 
-- **Type** - one of Fire / Water / Electric / Nature / Chaos (see Section 10).
+Each Pom has the following fields:
+
+- **Type** - one of Chaos / Calm / Greedy / Trick / Lucky / Wild (see Section 10).
 - **Level** - integer 1 to 50.
 - **Energy Value** - the creature's contribution to the team's starting energy pool.
 - **AP Cost** - action-point cost to deploy / queue this creature in a round. *(TBD: full AP economy - per-round AP budget, refresh rules, and how AP relates to which creatures can act.)*
 - **Stats** - Power, Weight, Luck, Control (see Section 9).
-- **Ball Profile** - the data that describes this creature's balls:
+- **Ball Profile** - the data that describes this creature's balls (`PomBallProfile`):
   - Ball **type** (matches creature type).
-  - Ball **count contribution** per round (scales with level - *exact formula TBD*).
+  - Ball **spawn pattern** (e.g. scatter, focused).
+  - Ball **count scale** - inclusive level bands; each band has its own ball count. The runtime Pom resolves its current ball count from this scale at its current level.
   - Ball **behavior tags** (examples only: bouncy, heavy, splitter, sticky). The exact tag list is a design data set, not fixed here.
-- **Abilities** - one or more abilities owned by the creature; one ability is selected per round (selection scope TBD, see Section 13).
+- **Abilities** - a **learnable pool** authored on the species (`learnableAbilities` on `PomDefinition`). At runtime each Pom has **at most 2 learned abilities** at a time; learning a third replaces one. **Abilities are type-locked**: a Pom can only learn abilities whose type matches its own (see Section 13).
+- **Visual Identity** - main colors + effect tags, authored as designer hints; the actual art binding lives on prefabs.
 
-Creatures define ball type and per-round ball contribution. Two creatures of the same type but different stats produce balls of the same type with different physical behavior.
+Two Poms of the same species share the same `PomDefinition` but each carries its own runtime state (level, exp, the two chosen learned abilities). Two Poms of the same type but different species can produce visually-distinct balls of that type with different physical behavior.
+
+### Authoring shape (canonical reference)
+
+`PomDefinition` assets follow this shape (illustrative values - see the `CreateAssetMenu` paths under `Pawchinko/Pom/...` in the Project window):
+
+```json
+{
+  "id": "POM_001",
+  "name": "Glitch Pug",
+  "species": "Static Hound",
+  "rarity": "Common",
+  "type": "Chaos",
+  "level_max": 50,
+  "exp_curve": "Medium",
+  "energy": 50,
+  "ap_cost": 2,
+  "stats": { "power": 2.1, "weight": 3, "luck": 5, "control": 1 },
+  "ball_data": {
+    "ball_type": "Chaos Ball",
+    "spawn_pattern": "scatter",
+    "base_ball_count": 1,
+    "ball_count_scale": [
+      { "min_level":  1, "max_level":  9, "count": 1 },
+      { "min_level": 10, "max_level": 24, "count": 2 },
+      { "min_level": 25, "max_level": 39, "count": 3 },
+      { "min_level": 40, "max_level": 50, "count": 4 }
+    ]
+  },
+  "learnable_abilities": ["CHAOS_001", "CHAOS_002"],
+  "tags": ["chaos", "unstable", "high_variance", "disruption"]
+}
+```
 
 ---
 
@@ -243,15 +291,47 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ## 10. Types
 
-> Types describe identity and behavior. They are NOT a rock-paper-scissors damage table.
+> Types describe gameplay personality. They are NOT a rock-paper-scissors damage table.
 
-- **Fire** - aggressive, edge-focused.
-- **Water** - smooth, consistent.
-- **Electric** - peg-trigger focused.
-- **Nature** - scaling over hits.
-- **Chaos** - unpredictable.
+Pokemon types are *fantasy elements*. Pawchinko types are *gameplay personalities*. Each type changes how a Pom **moves**, how it **interacts with the board**, what shape its **abilities** take, and what its **visuals** read as.
 
-> **Hard rule**: types define identity and behavior, NOT direct counters. There are **no type-vs-type damage multipliers**. All counterplay lives in **abilities**, not in passive type matchups.
+### The six types
+
+- **Chaos** - unpredictable disruption. High variance, unstable bouncing, random peg / bucket modifiers. Visuals: glitchy, distorted, purple energy.
+- **Calm** - stable, consistent scoring. Smooth movement, low-variance outcomes, stabilizing / protective abilities. Visuals: soft colors, flowing motion, peaceful aura.
+- **Greedy** - jackpot hunting and multiplier scaling. Strong edge drift, risky pathing, abilities that buff edge buckets / jackpot effects. Visuals: gold, gems, crowns, treasure.
+- **Trick** - manipulation and board control. Lane switching, redirect / fake-danger effects, swap-bucket abilities. Visuals: masks, cards, carnival style.
+- **Lucky** - fortune and crit-style spikes. Edge fishing, lucky pegs, reroll / bonus-edge rewards. Visuals: coins, charms, stars, casino flair.
+- **Wild** - aggression, speed, overwhelming pressure. Aggressive bouncing, high collision count, rapid-fire / combo abilities. Visuals: messy fur, claw marks, motion streaks, primal energy.
+
+### The soft loop (gameplay flow, NOT damage)
+
+```
+Chaos > Calm > Greedy > Trick > Lucky > Wild > Chaos
+```
+
+```mermaid
+flowchart LR
+    Chaos --> Calm
+    Calm --> Greedy
+    Greedy --> Trick
+    Trick --> Lucky
+    Lucky --> Wild
+    Wild --> Chaos
+```
+
+This loop is **strategic pressure**, not a damage multiplier:
+
+- **Chaos > Calm** - Chaos disrupts stable setups, but **Wild** overwhelms Chaos before its tricks matter.
+- **Calm > Greedy** - Calm wins through reliable value, but **Chaos** destroys consistency.
+- **Greedy > Trick** - Greedy brute-forces through setup play, but loses to **Calm** consistency.
+- **Trick > Lucky** - Trick manipulates the board too heavily for Lucky setups, but **Greedy** overwhelms slower control play.
+- **Lucky > Wild** - Lucky capitalizes on chaotic movement, but **Trick** manipulates the board too heavily.
+- **Wild > Chaos** - Wild overwhelms slow disruption, but **Lucky** capitalizes on unstable movement.
+
+### Hard rule (unchanged)
+
+> Types define identity and behavior, NOT direct counters. There are **no type-vs-type damage multipliers** and **no hidden elemental math**. All counterplay lives in **abilities** (see Section 13). The strengths-against / weakness-against fields on `PomTypeDefinition` are *informational gameplay-flow hints only*; nothing in the scoring or energy pipeline reads them as a multiplier.
 
 ---
 
@@ -286,19 +366,22 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 > Abilities are the game's primary interaction and counter system.
 
-- **One ability is resolved per round** per side. *(TBD: selection scope - active creature's ability only vs. chosen from team pool.)*
+- **One ability is resolved per round** per side. *(TBD: selection scope - one of the 3 active Poms' abilities, or chosen from the active-team pool of up to 6 learned abilities.)*
 - Abilities are selected **before the drop** and locked in for the round.
+- **Abilities are typed.** A `PomAbilityDefinition` carries a `PomType`; **a Pom can only learn / use abilities of its own type**. This is enforced in code (`Pom.CanLearn`, `PomDefinition.CanLearn`) - not a soft convention.
+- **Two learned abilities per Pom at runtime.** Each Pom has exactly two ability slots. Learning a third ability replaces the contents of one of those slots; there is no overflow / stash on the Pom itself.
+- **Stats modify ability output, not the ability's own numbers.** Raw effect values (e.g. "50% chance to multiply balls by 2x", "+1 bucket value", "3 pegs become debuff pegs") are authored on `PomAbilityDefinition`. The final in-battle number is computed by `PomAbilityFormula` using the owning Pom's `PomStats`. Power, Luck, etc. **amplify or scale** the result but **never silently overwrite** what the ability sheet says.
 - **Categories**:
   - Self buff (e.g. extra balls, bucket boost on own board).
   - Enemy debuff (e.g. shrink enemy buckets).
   - Peg modifier (e.g. mark pegs for bonus, electrify pegs).
   - Bucket modifier (e.g. swap bucket values, +0.5 edges).
-  - Chaos effect (e.g. random bucket swap, ball-behavior flip).
+  - Board scramble (e.g. random bucket swap, ball-behavior flip).
 - **Illustrative example abilities** (not canonical specs - included only to show the shape an ability can take):
-  - "AQUASHOT x4" - likely a self buff that adds extra balls or charges a multi-ball effect.
-  - "ROOT TRAP" with a tier / rarity indicator (e.g. 1-3 stars) - likely a peg or bucket trap. The stars likely indicate **rarity or upgrade tier**. *(TBD: confirm what the stars mean.)*
+  - *Glitch Field* (Chaos / Board Scramble) - "Randomly increase one bucket by +1 and reduce another by -1 this round."
+  - *Corrupt Pegs* (Chaos / Peg Debuff) - "3 random enemy pegs reduce final multiplier by 0.5 when hit."
 
-> **Hard rule**: abilities are the primary interaction and counter system. Mechanics that bypass abilities (e.g. passive type counters, hidden auto-buffs) violate the design.
+> **Hard rule**: abilities are the primary interaction and counter system. Mechanics that bypass abilities (e.g. passive type counters, hidden auto-buffs) violate the design. Type matchups produce *gameplay-flow pressure* (see Section 10), not stat changes - the only place stats touch ability output is the explicit, readable `PomAbilityFormula` seam.
 
 ---
 
@@ -317,8 +400,9 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 > Where the player exercises agency. If a feature doesn't feed one of these, question it.
 
-- **Team composition** - types, stats, role mix.
-- **Queue order** across rounds - setup -> combo -> finisher cadence.
+- **Team composition** - types, stats, role mix across all 6 Poms.
+- **Bench rotation** - which 3 of the 6 Poms are active each round; who sits on the bench to recover AP for stronger plays later.
+- **Multi-round cadence** - setup -> combo -> finisher rhythm across rounds, gated by AP availability.
 - **Per-round ability choice** - the counterplay window.
 - **Board interaction** - peg and bucket modifiers shape the physics outcome.
 
@@ -343,14 +427,14 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 - **Top center** - round counter (example label: "ROUND 5"). Just the round number; no other top-bar HUD elements.
 - **Left edge** - player team strip:
   - Small faction / team header (example: "Ember").
-  - Exactly **5 creature rows**, each showing the creature's portrait, name, and level.
+  - **One row per Pom in the roster** (1..N rows depending on team size). The top rows (up to 3) are the **active** Poms (highlighted); any rows below are the **bench** (visually dimmed / pulled back). Each row shows portrait, name, level. *(TBD: active vs bench visual treatment - confirm with art direction.)*
   - **Per-row HP bars are explicitly NOT part of the canonical layout.** Energy is team-summed (see Section 7).
-- **Right edge** - enemy team strip, mirrored layout, also exactly 5 rows.
+- **Right edge** - enemy team strip, mirrored layout, also one row per Pom in their roster.
 - **Center stage** - the two 3D plinko boards with live ball physics; bucket value labels overlay each 3D bucket.
-- **Active creature indicator** - a small arrow or highlight on the currently-acting creature's row in the roster (one per side).
-- **Bottom-left card** - active player creature: portrait, level, name, ball-count badge (example: "Lv.20 Aquapp x4"), and the selected ability with its badge / charge count (example: "AQUASHOT x4").
-- **Bottom-right card** - active enemy creature, mirrored, with the enemy ability label (example: "ROOT TRAP") and a tier / rarity indicator (example: 3 stars).
-- **Bottom center** - the **DROP** button with a downward arrow; current round score readout sits below it (example: "87 | 72").
+- **Active-row markers** - the active rows (up to 3) on each side are visually distinct from any bench rows (e.g. highlight, indent, badge). The single currently-narrated Pom (if the design ends up surfacing one) gets a secondary marker. *(TBD: confirm whether there is a single "narrating" active Pom per side or all active Poms read as equal.)*
+- **Bottom-left card** - active player surface: shows the locked-in ability for the round and its badge / charge count (example: "AQUASHOT x4"). *(TBD: whether the card surfaces every active Pom or just the one whose ability resolves this round.)*
+- **Bottom-right card** - active enemy surface, mirrored.
+- **Bottom center** - the **BATTLE** button (replaces the per-drop **DROP** label - one press resolves the round); current round score readout sits below it (example: "87 | 72"). The vertical-slice code still labels this button "DROP"; the rename lands when the Planning Phase UI does.
 
 ---
 
@@ -394,6 +478,10 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 > **Keep systems readable** - avoid hidden complexity and silent RNG.
 
+> **Up to 3 active Poms per side per round.** Roster size itself is flexible (1..N - per-encounter cap **TBD**); Poms beyond the active 3 sit on the bench. Bench Poms recover AP between rounds; rotation is a first-class strategy lever. A Pawler with only 1 or 2 Poms is valid - they simply fight with a smaller active set and no bench.
+
+> **AP economy makes rotation matter.** Strong abilities cost AP; sitting on the bench is how you save up for them. (AP numbers - per-round budget, ability cost ranges, bench recovery rate - are **TBD**.)
+
 > **Overworld and Battle are separate instances.** Battle resolves to completion before control returns to the overworld; the two never share a scene, camera, or input layer.
 
 ---
@@ -407,18 +495,21 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 - **Do** preserve team-summed energy as the only health resource.
 - **Do** route all counterplay through abilities, peg modifiers, and bucket modifiers.
 - **Do** keep boards as 3D scenes with a 2D UI overlay layer.
-- **Do** keep 5 creatures per side on the roster.
+- **Do** keep rosters **flexible (1..N total Poms, up to 3 active per round)**. Code must not hardcode "exactly 6" or "exactly 3" Poms - read the roster length and clamp the active count at 3. A 1-Pom team is a legal team.
 - **Do** keep the **overworld and battle as separate instances** (separate scenes, separate cameras, separate input). Cross-system communication goes through events only.
-- **Do** flag unknowns to the user instead of inventing values for AP cost, ball-count scaling, bucket layouts, ability selection scope, encounter rates, or reward tables.
+- **Do** flag unknowns to the user instead of inventing values for AP cost / refresh / recovery, ball-count scaling tuning, bucket layouts, ability selection scope, encounter rates, or reward tables.
 - **Do** prefer Sections 2-22 over Section 23 when they conflict.
 
 **Don't:**
 
-- **Don't** add per-creature HP bars or per-creature KO logic.
+- **Don't** add per-Pom HP bars or per-Pom KO logic.
 - **Don't** introduce type-vs-type damage multipliers or any rock-paper-scissors counter table.
 - **Don't** turn the boards into pure 2D sprites or remove the 3D creature stage.
 - **Don't** replace ability counterplay with passive stat checks.
 - **Don't** add hidden RNG that the player cannot read or counter.
+- **Don't** lock more than 3 Poms onto the board simultaneously. At most 3 are active per round; everything beyond that sits on the bench.
+- **Don't** hardcode roster size as exactly 6 (or any specific number). Rosters are flexible 1..N; the only fixed cap is "up to 3 active".
+- **Don't** invent AP numbers (per-round budget, recovery rate, ability cost ranges) - they are explicitly TBD; flag instead of choosing.
 - **Don't** spawn battle systems (boards, balls, battle UI, scoring) into the overworld scene, or overworld systems (player controller, encounter zones, world NPCs) into the battle scene.
 - **Don't** persist battle-only state (active queue, ball lists, board modifiers) into the overworld after a battle ends. Battle state is scoped to the battle instance.
 - **Don't** treat the illustrative example labels in this guide (specific creature names, ability names, faction names, bucket numbers, round numbers) as canonical - only positions, components, and counts are binding.
@@ -428,19 +519,23 @@ Creatures define ball type and per-round ball contribution. Two creatures of the
 
 ## 22. Glossary
 
-- **Paw** - a creature.
+- **Pom** - a creature. The data layer expresses this as a `PomDefinition` ScriptableObject (static species data) plus a `Pom` runtime instance (mutable level, exp, and two learned-ability slots).
+- **Pawler** - a trainer / player who fields a flexible team of 1..N Poms in battle (per-encounter cap *TBD*).
+- **Active Team** - the up-to-3 Poms currently on the board contributing balls / abilities this round.
+- **Bench** - any roster Poms beyond the active set; they sit out the current round, recover AP, and can be swapped in during the next Planning Phase. A 1- or 2-Pom team simply has no bench.
+- **Planning Phase** - the pre-combat phase each round where the player swaps active/bench Poms and chooses abilities.
+- **Battle Phase** - the locked-in physics phase that begins when the player presses BATTLE; no further input until resolution.
+- **AP recovery** - the AP that bench Poms gain each round (rate *TBD*); enables saving up for expensive abilities.
 - **Energy** - team-summed health / win-condition resource.
-- **AP** - Action Points; per-round currency for queueing creatures (full economy *TBD*).
-- **Ball Profile** - the data describing a creature's balls (type, count, behavior tags).
-- **Round** - one full Setup -> Energy cycle of the battle state machine.
-- **Queue** - the per-round ordering / selection of creatures that will contribute balls.
-- **Active Creature** - the creature highlighted as primary actor for the current round.
+- **AP** - Action Points; per-round currency for using abilities (full economy *TBD*).
+- **Ball Profile** - the data describing a Pom's balls (type, count, behavior tags).
+- **Round** - one full Planning -> Battle -> Energy -> Post-Round cycle of the battle state machine.
 - **Bucket** - a scoring container at the base of a board.
 - **Peg** - a deflector on the board; may be a "modifier peg" with effects.
 - **Modifier** - any temporary effect on a ball, peg, or bucket.
 - **Overworld** - the persistent top-down 3D world the player walks around between battles.
 - **Encounter Zone** - a tagged region or trigger volume in the overworld that can start a battle (wild grass patch, NPC line-of-sight cone, scripted story trigger, etc.).
-- **Battle Instance** - the separately-loaded slice of the game where a 1v1 plinko battle happens. Distinct from the overworld; loaded on encounter, unloaded on battle end.
+- **Battle Instance** - the separately-loaded slice of the game where a Pawler-vs-Pawler plinko battle happens (team-vs-team, up to 3 active per side). Distinct from the overworld; loaded on encounter, unloaded on battle end.
 
 ---
 

@@ -21,9 +21,9 @@ namespace Pawchinko
         [SerializeField] private Vector3 spawnTorqueJitter = new(0.5f, 0f, 0.5f);
 
         /// <summary>
-        /// Spawns a single ball at the spawn point, applies jitter, and assigns id/side.
+        /// Spawns a single ball at the spawn point, applies jitter, and assigns id/side/source.
         /// </summary>
-        public Ball Spawn(int id, Side side)
+        public Ball Spawn(int id, Side side, Pom sourcePom)
         {
             if (ballPrefab == null)
             {
@@ -35,7 +35,7 @@ namespace Pawchinko
             Vector3 pos = origin + new Vector3(Random.Range(-spawnXJitter, spawnXJitter), 0f, 0f);
 
             Ball ball = Instantiate(ballPrefab, pos, Quaternion.identity, ballContainer);
-            ball.Init(id, side);
+            ball.Init(id, side, sourcePom);
 
             if (ballMaterialOverride != null)
             {

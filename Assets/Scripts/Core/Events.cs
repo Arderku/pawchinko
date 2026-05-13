@@ -31,46 +31,56 @@ namespace Pawchinko
     }
 
     /// <summary>
-    /// Published when a new round begins. Both sides drop simultaneously per round; per-side
-    /// active-pet indices (0..4) drive the roster active-indicator + active-card text.
+    /// Published when a new round begins. Both sides drop simultaneously per round. Active-pet
+    /// indices were removed alongside the 1v1 vertical slice and will be reintroduced when the
+    /// 6-total / 3-active roster lands.
     /// </summary>
     public class RoundStartedEvent
     {
         public int RoundNumber { get; }
-        public int PlayerActivePetIndex { get; }
-        public int EnemyActivePetIndex { get; }
 
-        public RoundStartedEvent(int roundNumber, int playerActivePetIndex, int enemyActivePetIndex)
+        public RoundStartedEvent(int roundNumber)
         {
             RoundNumber = roundNumber;
-            PlayerActivePetIndex = playerActivePetIndex;
-            EnemyActivePetIndex = enemyActivePetIndex;
         }
     }
 
     /// <summary>
     /// Published by BattleManager when a drop is initiated for the current round (after the
-    /// state guard passes, before balls spawn). Cross-system gameplay broadcast - other systems
-    /// (SFX, camera shake, analytics, etc.) can subscribe to react. Not a UI input.
+    /// state guard passes, before balls spawn). Carries the expected ball count per side so
+    /// ScoringManager knows how many BallSettledEvents to wait for before declaring the round
+    /// scored. Cross-system gameplay broadcast; not a UI input.
     /// </summary>
     public class DropRequestedEvent
     {
+        public int PlayerBallCount { get; }
+        public int EnemyBallCount { get; }
+
+        public DropRequestedEvent(int playerBallCount, int enemyBallCount)
+        {
+            PlayerBallCount = playerBallCount;
+            EnemyBallCount = enemyBallCount;
+        }
     }
 
     /// <summary>
-    /// Published when a ball physically settles in a slot trigger.
+    /// Published when a ball physically settles in a slot trigger. SourcePom is the active Pom
+    /// that spawned this ball - scoring uses it to apply per-Pom Power (and later stat-driven
+    /// modifiers). May be null only if the ball was spawned without a Pom (debug paths).
     /// </summary>
     public class BallSettledEvent
     {
         public int BallId { get; }
         public Side Side { get; }
         public int SlotIndex { get; }
+        public Pom SourcePom { get; }
 
-        public BallSettledEvent(int ballId, Side side, int slotIndex)
+        public BallSettledEvent(int ballId, Side side, int slotIndex, Pom sourcePom)
         {
             BallId = ballId;
             Side = side;
             SlotIndex = slotIndex;
+            SourcePom = sourcePom;
         }
     }
 
