@@ -11,20 +11,12 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1275d8335852226479a8ce150c04ab9c, type: 3}
   m_Name: PomAbility_CHAOS_001
-  m_EditorClassIdentifier: Pawchinko::Pawchinko.PomAbilityDefinition
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.PomAbilityData
   id: CHAOS_001
   displayName: Glitch Field
-  type: 0
-  kind: 6
   description: Randomly increase one bucket by +1 and reduce another by -1 this round.
-  target: 2
-  duration: 1
-  effect:
-    type: random_bucket_modifier
-    operation: 
-    value: 0
-    positiveValue: 1
-    negativeValue: -1
-    targets: 2
-    pegCount: 0
-    chance: 1
+  type: 0
+  category: 6
+  boardTarget: 2
+  effectValue: 1
+  procChance: 1

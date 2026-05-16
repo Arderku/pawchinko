@@ -11,20 +11,12 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1275d8335852226479a8ce150c04ab9c, type: 3}
   m_Name: PomAbility_CHAOS_002
-  m_EditorClassIdentifier: Pawchinko::Pawchinko.PomAbilityDefinition
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.PomAbilityData
   id: CHAOS_002
   displayName: Corrupt Pegs
-  type: 0
-  kind: 3
   description: 3 random enemy pegs reduce final multiplier by 0.5 when hit.
-  target: 1
-  duration: 1
-  effect:
-    type: peg_on_hit_modifier
-    operation: subtract_multiplier
-    value: 0.5
-    positiveValue: 0
-    negativeValue: 0
-    targets: 0
-    pegCount: 3
-    chance: 1
+  type: 0
+  category: 3
+  boardTarget: 1
+  effectValue: 0.5
+  procChance: 1

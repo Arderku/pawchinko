@@ -36,7 +36,7 @@ namespace Pawchinko
         /// The source Pom is the active Pom that owns this ball; it travels with the ball into
         /// BallSettledEvent so scoring can apply its stats.
         /// </summary>
-        public Ball SpawnFor(Side side, Pom sourcePom)
+        public Ball SpawnFor(Side side, PomInstance sourcePom)
         {
             if (boardManager == null)
             {

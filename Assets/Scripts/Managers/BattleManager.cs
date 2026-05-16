@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Pawchinko
 {
@@ -33,17 +34,19 @@ namespace Pawchinko
 
         [Header("Rosters")]
         [Tooltip("1..N Pom species the player brings to battle. The first MaxActivePoms entries are active each round; the rest sit on the bench.")]
-        [SerializeField] private List<PomDefinition> playerPomDefinitions = new();
+        [FormerlySerializedAs("playerPomDefinitions")]
+        [SerializeField] private List<PomData> playerPoms = new();
         [Tooltip("1..N Pom species the enemy brings to battle. Same active/bench split as the player.")]
-        [SerializeField] private List<PomDefinition> enemyPomDefinitions = new();
+        [FormerlySerializedAs("enemyPomDefinitions")]
+        [SerializeField] private List<PomData> enemyPoms = new();
         [SerializeField] private int playerStartingLevel = 1;
         [SerializeField] private int enemyStartingLevel = 1;
 
         [Header("State (read-only at runtime)")]
         [SerializeField] private int currentRound;
         [SerializeField] private State state;
-        [SerializeField] private List<Pom> playerRoster = new();
-        [SerializeField] private List<Pom> enemyRoster = new();
+        [SerializeField] private List<PomInstance> playerRoster = new();
+        [SerializeField] private List<PomInstance> enemyRoster = new();
 
         public int CurrentRound => currentRound;
 
@@ -64,7 +67,7 @@ namespace Pawchinko
         /// <summary>
         /// Returns the full roster (active + bench) for the given side.
         /// </summary>
-        public IReadOnlyList<Pom> GetRoster(Side side)
+        public IReadOnlyList<PomInstance> GetRoster(Side side)
         {
             return side == Side.Player ? playerRoster : enemyRoster;
         }
@@ -73,13 +76,13 @@ namespace Pawchinko
         /// Returns the active Poms for the given side - the first
         /// <see cref="MaxActivePoms"/> entries of the roster, or fewer if the roster is shorter.
         /// </summary>
-        public IReadOnlyList<Pom> GetActivePoms(Side side)
+        public IReadOnlyList<PomInstance> GetActivePoms(Side side)
         {
             var roster = side == Side.Player ? playerRoster : enemyRoster;
             int active = Mathf.Min(MaxActivePoms, roster.Count);
             // Allocating a small list each call is fine for the current battle cadence; if this
             // shows up in a hot path later, replace with a pooled buffer.
-            var result = new List<Pom>(active);
+            var result = new List<PomInstance>(active);
             for (int i = 0; i < active; i++) result.Add(roster[i]);
             return result;
         }
@@ -89,7 +92,7 @@ namespace Pawchinko
         /// null if the roster is empty. Convenience for the HUD's single-card display while the
         /// Planning Phase UI is still TBD.
         /// </summary>
-        public Pom GetActivePom(Side side)
+        public PomInstance GetActivePom(Side side)
         {
             var roster = side == Side.Player ? playerRoster : enemyRoster;
             return roster.Count > 0 ? roster[0] : null;
@@ -97,27 +100,27 @@ namespace Pawchinko
 
         private void EnsureRosters()
         {
-            playerRoster = BuildRoster(Side.Player, playerPomDefinitions, playerStartingLevel);
-            enemyRoster = BuildRoster(Side.Enemy, enemyPomDefinitions, enemyStartingLevel);
+            playerRoster = BuildRoster(Side.Player, playerPoms, playerStartingLevel);
+            enemyRoster = BuildRoster(Side.Enemy, enemyPoms, enemyStartingLevel);
         }
 
-        private List<Pom> BuildRoster(Side side, List<PomDefinition> definitions, int startingLevel)
+        private List<PomInstance> BuildRoster(Side side, List<PomData> pomData, int startingLevel)
         {
-            var roster = new List<Pom>();
-            if (definitions == null || definitions.Count == 0)
+            var roster = new List<PomInstance>();
+            if (pomData == null || pomData.Count == 0)
             {
-                Debug.LogError($"[BattleManager] {side} roster is empty - assign at least one PomDefinition in the Inspector!");
+                Debug.LogError($"[BattleManager] {side} roster is empty - assign at least one PomData in the Inspector!");
                 return roster;
             }
-            for (int i = 0; i < definitions.Count; i++)
+            for (int i = 0; i < pomData.Count; i++)
             {
-                var def = definitions[i];
-                if (def == null)
+                var data = pomData[i];
+                if (data == null)
                 {
                     Debug.LogError($"[BattleManager] {side} roster slot {i} is null - fix the Inspector list.");
                     continue;
                 }
-                roster.Add(new Pom(def, startingLevel));
+                roster.Add(PomFactory.CreatePomInstance(data, startingLevel));
             }
             return roster;
         }
@@ -173,7 +176,7 @@ namespace Pawchinko
 
             if (playerBalls <= 0 || enemyBalls <= 0)
             {
-                Debug.LogError($"[BattleManager] Drop aborted - non-positive ball total (P={playerBalls} E={enemyBalls}). Check PomDefinition.ballProfile / roster setup.");
+                Debug.LogError($"[BattleManager] Drop aborted - non-positive ball total (P={playerBalls} E={enemyBalls}). Check PomData ball-count scale / roster setup.");
                 return;
             }
 
@@ -188,19 +191,19 @@ namespace Pawchinko
             Debug.Log($"[BattleManager] Round {currentRound} drop - P={playerBalls} balls ({playerActive.Count} active Poms), E={enemyBalls} balls ({enemyActive.Count} active Poms)");
         }
 
-        private static int CountBalls(IReadOnlyList<Pom> activePoms)
+        private static int CountBalls(IReadOnlyList<PomInstance> activePoms)
         {
             int total = 0;
-            for (int i = 0; i < activePoms.Count; i++) total += activePoms[i].CurrentBallCount;
+            for (int i = 0; i < activePoms.Count; i++) total += PomBallCount.GetCurrentBallCount(activePoms[i]);
             return total;
         }
 
-        private static void SpawnSide(BallManager ballManager, Side side, IReadOnlyList<Pom> activePoms)
+        private static void SpawnSide(BallManager ballManager, Side side, IReadOnlyList<PomInstance> activePoms)
         {
             for (int i = 0; i < activePoms.Count; i++)
             {
                 var pom = activePoms[i];
-                int count = pom.CurrentBallCount;
+                int count = PomBallCount.GetCurrentBallCount(pom);
                 for (int b = 0; b < count; b++) ballManager.SpawnFor(side, pom);
             }
         }

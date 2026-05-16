@@ -62,7 +62,7 @@ namespace Pawchinko
             for (int i = 0; i < roster.Count; i++)
             {
                 var pom = roster[i];
-                if (pom != null && pom.Definition != null) sum += pom.Definition.BaseEnergy;
+                if (pom != null && pom.data != null) sum += pom.data.BaseEnergy;
             }
             return sum;
         }

@@ -65,17 +65,18 @@ namespace Pawchinko
 
     /// <summary>
     /// Published when a ball physically settles in a slot trigger. SourcePom is the active Pom
-    /// that spawned this ball - scoring uses it to apply per-Pom Power (and later stat-driven
-    /// modifiers). May be null only if the ball was spawned without a Pom (debug paths).
+    /// instance that spawned this ball - scoring uses it to apply per-Pom Power (and later
+    /// stat-driven modifiers). May be null only if the ball was spawned without a Pom (debug
+    /// paths).
     /// </summary>
     public class BallSettledEvent
     {
         public int BallId { get; }
         public Side Side { get; }
         public int SlotIndex { get; }
-        public Pom SourcePom { get; }
+        public PomInstance SourcePom { get; }
 
-        public BallSettledEvent(int ballId, Side side, int slotIndex, Pom sourcePom)
+        public BallSettledEvent(int ballId, Side side, int slotIndex, PomInstance sourcePom)
         {
             BallId = ballId;
             Side = side;

@@ -201,38 +201,44 @@ namespace Pawchinko
             indicator.anchoredPosition = indicatorPos;
         }
 
-        private void UpdateActiveCard(TMP_Text titleText, TMP_Text subText, IReadOnlyList<Pom> activePoms)
+        private void UpdateActiveCard(TMP_Text titleText, TMP_Text subText, IReadOnlyList<PomInstance> activePoms)
         {
             if (activePoms == null || activePoms.Count == 0) return;
             var primary = activePoms[0];
-            if (primary == null || primary.Definition == null) return;
+            if (primary == null || primary.data == null) return;
 
             int totalBalls = 0;
             for (int i = 0; i < activePoms.Count; i++)
             {
                 var p = activePoms[i];
-                if (p != null) totalBalls += p.CurrentBallCount;
+                if (p != null) totalBalls += PomBallCount.GetCurrentBallCount(p);
             }
 
             if (titleText != null)
             {
                 titleText.text = activePoms.Count > 1
-                    ? $"Active: {primary.Definition.DisplayName} Lv.{primary.Level} (+{activePoms.Count - 1})"
-                    : $"Active: {primary.Definition.DisplayName} Lv.{primary.Level}";
+                    ? $"Active: {primary.data.DisplayName} Lv.{primary.level} (+{activePoms.Count - 1})"
+                    : $"Active: {primary.data.DisplayName} Lv.{primary.level}";
             }
-            if (subText != null) subText.text = $"{primary.Definition.Type} | Ball x{totalBalls}";
+            if (subText != null)
+            {
+                string typeLabel = primary.data.HasSecondaryType
+                    ? $"{primary.data.PrimaryType}/{primary.data.SecondaryType}"
+                    : primary.data.PrimaryType.ToString();
+                subText.text = $"{typeLabel} | Ball x{totalBalls}";
+            }
         }
 
-        private static void PopulateRosterLabels(List<TMP_Text> labels, IReadOnlyList<Pom> roster)
+        private static void PopulateRosterLabels(List<TMP_Text> labels, IReadOnlyList<PomInstance> roster)
         {
             if (labels == null || labels.Count == 0) return;
             for (int i = 0; i < labels.Count; i++)
             {
                 var label = labels[i];
                 if (label == null) continue;
-                if (roster != null && i < roster.Count && roster[i] != null && roster[i].Definition != null)
+                if (roster != null && i < roster.Count && roster[i] != null && roster[i].data != null)
                 {
-                    label.text = $"{roster[i].Definition.DisplayName} Lv.{roster[i].Level}";
+                    label.text = $"{roster[i].data.DisplayName} Lv.{roster[i].level}";
                 }
                 else
                 {

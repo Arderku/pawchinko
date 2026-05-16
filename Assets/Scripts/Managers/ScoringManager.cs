@@ -69,7 +69,7 @@ namespace Pawchinko
                 enemyLanded++;
             }
 
-            string pomName = evt.SourcePom != null && evt.SourcePom.Definition != null ? evt.SourcePom.Definition.DisplayName : "(null)";
+            string pomName = evt.SourcePom != null && evt.SourcePom.data != null ? evt.SourcePom.data.DisplayName : "(null)";
             Debug.Log($"[ScoringManager] {evt.Side} {pomName} slot={evt.SlotIndex} slotValue={slotValue} scored={scored} (round={currentRound} {playerLanded}/{playerExpected} {enemyLanded}/{enemyExpected})");
 
             if (playerExpected > 0 && enemyExpected > 0
@@ -87,10 +87,10 @@ namespace Pawchinko
             return scoring.slotValues[slotIndex];
         }
 
-        private static int ScaleByPomPower(Pom pom, int slotValue)
+        private static int ScaleByPomPower(PomInstance pom, int slotValue)
         {
-            if (pom == null || pom.Definition == null || pom.Definition.BaseStats == null) return slotValue;
-            float power = pom.Definition.BaseStats.power;
+            if (pom == null || pom.data == null || pom.data.BaseStats == null) return slotValue;
+            float power = pom.data.BaseStats.power;
             if (power <= 0f) return slotValue;
             return Mathf.RoundToInt(slotValue * power);
         }

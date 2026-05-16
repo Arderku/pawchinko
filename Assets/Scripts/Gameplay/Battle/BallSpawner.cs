@@ -23,7 +23,7 @@ namespace Pawchinko
         /// <summary>
         /// Spawns a single ball at the spawn point, applies jitter, and assigns id/side/source.
         /// </summary>
-        public Ball Spawn(int id, Side side, Pom sourcePom)
+        public Ball Spawn(int id, Side side, PomInstance sourcePom)
         {
             if (ballPrefab == null)
             {
