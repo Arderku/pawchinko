@@ -1,271 +1,684 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Pawchinko
 {
-    /// <summary>
-    /// Battle HUD: temp dev controls (Start / Exit / Drop), round counter, roster strips,
-    /// active-Pom card readouts, energy + score readouts, and a winner overlay. Roster row
-    /// label slots are optional - wire them per-row in the scene to surface Pom name + level;
-    /// leave them empty for the placeholder pre-roster layout.
-    /// </summary>
+        /// <summary>
+        /// Battle HUD (Pickup-style layout): round counter top-center, both sides showing 5
+        /// Pom cards split into Battle Zone (3) + Bench Zone (2), an ability picker beside the
+        /// focused active card, two boards in the middle, score + total readouts at the bottom,
+        /// and BATTLE / RETREAT main buttons with keyboard + gamepad support via the Input
+        /// System (Confirm / Retreat / Swap / Ability / Navigate actions on the Battle map).
+        ///
+        /// Focus model: the player can navigate through 7 focusable items - the 5 player Pom
+        /// cards (indices 0..4) plus the BATTLE button (index 5) and RETREAT button (index 6).
+        /// Default focus is the BATTLE button so the player can immediately see what's selected
+        /// and press Confirm to start dropping balls. Each focusable target has its own outline
+        /// child that this script toggles in <see cref="RefreshFocus"/>.
+        ///
+        /// While the ability picker is open, navigation is captured by the picker: Up/Down
+        /// cycle between NONE / ABILITY 1 / ABILITY 2. Confirm locks the highlighted option
+        /// and returns focus to the originating Pom card. Retreat (Esc / B) cancels the
+        /// picker without changing the selection and without ending the battle.
+        ///
+        /// Confirm semantics:
+        /// - Picker open -> lock current ability selection and close.
+        /// - Active card focused (0..2) -> open the picker for that Pom.
+        /// - RETREAT focused (6) -> publish BattleEndedEvent (player loses).
+        /// - Otherwise (bench focused / BATTLE focused) -> request drop.
+        ///
+        /// Retreat semantics:
+        /// - Picker open -> cancel picker (no selection change, battle continues).
+        /// - Otherwise -> publish BattleEndedEvent.
+        /// </summary>
     public class BattleHud : MonoBehaviour
     {
+        public const int NoFocus = -1;
+
         [Header("References")]
         [SerializeField] private EventSystem eventSystem;
 
-        [Header("Dev Controls")]
-        [SerializeField] private Button startButton;
-        [SerializeField] private Button exitButton;
-        [SerializeField] private Button dropButton;
+        [Header("Main Buttons")]
+        [SerializeField] private Button battleButton;
+        [SerializeField] private Button retreatButton;
+        [SerializeField] private TMP_Text battleButtonLabel;
+        [Tooltip("Focus outline child shown when the BATTLE button is the currently focused navigation target.")]
+        [SerializeField] private GameObject battleButtonFocusOutline;
+        [Tooltip("Focus outline child shown when the RETREAT button is the currently focused navigation target.")]
+        [SerializeField] private GameObject retreatButtonFocusOutline;
+
+        [Header("Top Bar")]
         [SerializeField] private TMP_Text roundCounterText;
 
-        [Header("Roster")]
-        [SerializeField] private List<RectTransform> playerRosterRows = new();
-        [SerializeField] private List<RectTransform> enemyRosterRows = new();
-        [Tooltip("Optional - per-row labels for the player roster. If wired, populated with each Pom's display name + level.")]
-        [SerializeField] private List<TMP_Text> playerRosterRowLabels = new();
-        [Tooltip("Optional - per-row labels for the enemy roster. If wired, populated with each Pom's display name + level.")]
-        [SerializeField] private List<TMP_Text> enemyRosterRowLabels = new();
-        [SerializeField] private RectTransform playerActiveIndicator;
-        [SerializeField] private RectTransform enemyActiveIndicator;
+        [Header("Pom Cards (length BattleManager.MaxRosterPoms = 5 per side)")]
+        [Tooltip("Cards 0..2 are the Battle Zone, cards 3..4 are the Bench Zone. Same on both sides.")]
+        [SerializeField] private List<BattlePomCardView> playerCards = new();
+        [SerializeField] private List<BattlePomCardView> enemyCards = new();
 
-        [Header("Active Cards")]
-        [SerializeField] private TMP_Text playerActiveTitleText;
-        [SerializeField] private TMP_Text playerActiveSubText;
-        [SerializeField] private TMP_Text enemyActiveTitleText;
-        [SerializeField] private TMP_Text enemyActiveSubText;
+        [Header("Ability Picker (player side only)")]
+        [SerializeField] private AbilityPickerView playerAbilityPicker;
 
-        [Header("Energy / Score / Winner")]
+        [Header("Energy + Score Readouts")]
         [SerializeField] private TMP_Text playerEnergyText;
         [SerializeField] private TMP_Text enemyEnergyText;
+        [Tooltip("Per-side round score - e.g. '80   40'")]
         [SerializeField] private TMP_Text roundScoreText;
+        [Tooltip("Single big number under the score line - showing the running diff (player - enemy).")]
+        [SerializeField] private TMP_Text roundTotalText;
+
+        [Header("Winner Overlay")]
         [SerializeField] private GameObject winnerOverlay;
         [SerializeField] private TMP_Text winnerText;
+
+        [Header("Control Hints")]
+        [SerializeField] private TMP_Text controlHintText;
+
+        [Header("Input Actions (Battle map)")]
+        [SerializeField] private InputActionReference confirmAction;
+        [SerializeField] private InputActionReference retreatAction;
+        [SerializeField] private InputActionReference swapAction;
+        [SerializeField] private InputActionReference abilityAction;
+        [SerializeField] private InputActionReference navigateAction;
+
+        // Focus indices layout (size = playerCards.Count + 2):
+        //   0..2 = active Pom cards
+        //   3..4 = bench Pom cards
+        //   5    = BATTLE button (BattleButtonFocusIndex)
+        //   6    = RETREAT button (RetreatButtonFocusIndex)
+        // NoFocus (-1) is only used while clearing visuals; default focus on Initialize is BATTLE.
+        private int _focusIndex = NoFocus;
+        private int _abilitySelection = AbilityPickerView.NoneIndex; // 0..2
+        private bool _pickerOpen;
+        private float _navCooldown;
+        private const float NavRepeatSeconds = 0.2f;
+
+        // Periodic heartbeat that logs the live action state so we can spot regressions where
+        // the Battle map gets disabled by other scenes. Set to 0 to silence the probe.
+        private float _navProbeAccum;
+        private const float NavProbeSeconds = 5f;
+
+        private int BattleButtonFocusIndex => playerCards.Count;
+        private int RetreatButtonFocusIndex => playerCards.Count + 1;
+        private int FocusableCount => playerCards.Count + 2;
 
         public void Initialize(EventSystem eventSystem)
         {
             this.eventSystem = eventSystem;
 
-            if (startButton == null) Debug.LogError("[BattleHud] startButton not assigned!");
-            if (exitButton == null) Debug.LogError("[BattleHud] exitButton not assigned!");
-            if (dropButton == null) Debug.LogError("[BattleHud] dropButton not assigned!");
-            if (roundCounterText == null) Debug.LogError("[BattleHud] roundCounterText not assigned!");
-            if (playerRosterRows == null || playerRosterRows.Count == 0) Debug.LogError("[BattleHud] playerRosterRows not assigned!");
-            if (enemyRosterRows == null || enemyRosterRows.Count == 0) Debug.LogError("[BattleHud] enemyRosterRows not assigned!");
-            if (playerActiveIndicator == null) Debug.LogError("[BattleHud] playerActiveIndicator not assigned!");
-            if (enemyActiveIndicator == null) Debug.LogError("[BattleHud] enemyActiveIndicator not assigned!");
-            if (playerActiveTitleText == null) Debug.LogError("[BattleHud] playerActiveTitleText not assigned!");
-            if (playerActiveSubText == null) Debug.LogError("[BattleHud] playerActiveSubText not assigned!");
-            if (enemyActiveTitleText == null) Debug.LogError("[BattleHud] enemyActiveTitleText not assigned!");
-            if (enemyActiveSubText == null) Debug.LogError("[BattleHud] enemyActiveSubText not assigned!");
-            if (playerEnergyText == null) Debug.LogError("[BattleHud] playerEnergyText not assigned!");
-            if (enemyEnergyText == null) Debug.LogError("[BattleHud] enemyEnergyText not assigned!");
-            if (roundScoreText == null) Debug.LogError("[BattleHud] roundScoreText not assigned!");
-            if (winnerOverlay == null) Debug.LogError("[BattleHud] winnerOverlay not assigned!");
-            if (winnerText == null) Debug.LogError("[BattleHud] winnerText not assigned!");
+            ValidateSerializedRefs();
+            ConfigureInputBackgroundBehavior();
 
             this.eventSystem.Subscribe<RoundStartedEvent>(OnRoundStarted);
             this.eventSystem.Subscribe<RoundScoredEvent>(OnRoundScored);
             this.eventSystem.Subscribe<EnergyChangedEvent>(OnEnergyChanged);
             this.eventSystem.Subscribe<BattleEndedEvent>(OnBattleEnded);
 
-            // TODO: Temporary code-based onClick wiring (unblocks playtest). Replaced when UI Toolkit
-            // panels land and buttons are wired via UI Toolkit clicked events / UnityEvents in the Inspector.
-            if (startButton != null)
+            WireButton(battleButton, OnBattlePressed);
+            WireButton(retreatButton, OnRetreatPressed);
+
+            WireAction(confirmAction, OnConfirmPressedCallback);
+            WireAction(retreatAction, OnRetreatPressedCallback);
+            WireAction(swapAction, OnSwapPressedCallback);
+            WireAction(abilityAction, OnAbilityPressedCallback);
+            if (navigateAction != null && navigateAction.action != null) navigateAction.action.Enable();
+
+            // Make sure the entire Battle action map is enabled. Other systems on the same
+            // asset (Player/Overworld controllers) call Disable() on their action maps when the
+            // overworld pauses, and at least one Unity Input System path also tears down the
+            // map when an asset is re-imported during Play mode. Enabling the map explicitly
+            // here is the belt-and-braces fix; the individual Enable() calls above already
+            // forked the actions out of the map, so this just keeps them aligned.
+            EnableBattleActionMap();
+
+            DiagnoseInputBinding("confirm", confirmAction);
+            DiagnoseInputBinding("retreat", retreatAction);
+            DiagnoseInputBinding("swap", swapAction);
+            DiagnoseInputBinding("ability", abilityAction);
+            DiagnoseInputBinding("navigate", navigateAction);
+
+            ResetHudVisuals();
+            _pickerOpen = false;
+            _abilitySelection = AbilityPickerView.NoneIndex;
+            if (playerAbilityPicker != null) playerAbilityPicker.Hide();
+            ClearAllCards();
+            RefreshButtonLabel();
+
+            // Pre-populate Plan phase: BattleSceneRoot calls battleManager.StartBattle() right
+            // after uiManager.Initialize, so by this point the rosters are built and the round
+            // is set. Bind both sides immediately so cards are visible from frame 0.
+            var bm = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
+            if (bm != null)
             {
-                startButton.onClick.RemoveAllListeners();
-                startButton.onClick.AddListener(OnStartClicked);
-                startButton.interactable = true;
-            }
-            if (exitButton != null)
-            {
-                exitButton.onClick.RemoveAllListeners();
-                exitButton.onClick.AddListener(OnExitClicked);
-                exitButton.interactable = true;
-            }
-            if (dropButton != null)
-            {
-                dropButton.onClick.RemoveAllListeners();
-                dropButton.onClick.AddListener(OnDropClicked);
-                dropButton.interactable = false;
+                RebindPlayerSide(bm);
+                RebindEnemySide(bm);
+                UpdateRoundText(bm.CurrentRound);
             }
 
-            UpdateRoundText(0);
-            HideActiveIndicators();
-            if (winnerOverlay != null) winnerOverlay.SetActive(false);
-            if (playerEnergyText != null) playerEnergyText.text = "ENERGY: --";
-            if (enemyEnergyText != null) enemyEnergyText.text = "ENERGY: --";
-            if (roundScoreText != null) roundScoreText.text = "0 | 0";
+            // Default selection is the BATTLE button so the player immediately sees what is
+            // focused and can press Confirm to drop balls.
+            _focusIndex = BattleButtonFocusIndex;
+            RefreshFocus();
 
             Debug.Log("[BattleHud] Initialized");
         }
 
-        private void OnStartClicked()
+        private void Update()
         {
-            if (winnerOverlay != null) winnerOverlay.SetActive(false);
-            if (roundScoreText != null) roundScoreText.text = "0 | 0";
-            if (startButton != null) startButton.interactable = false;
-
-            var battleManager = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
-            if (battleManager == null)
-            {
-                Debug.LogError("[BattleHud] BattleManager unavailable, cannot start battle.");
-                return;
-            }
-            battleManager.StartBattle();
+            EnsureBattleMapEnabled();
+            HandleNavigateInput();
+            ProbeInputHeartbeat();
         }
 
-        private void OnExitClicked()
+        private void EnsureBattleMapEnabled()
         {
-            // Player flees the battle: end with Enemy as winner so SceneFlowManager unloads
-            // Battle and resumes Overworld via the standard BattleEndedEvent flow.
-            if (eventSystem == null)
+            // Brute-force re-enable every frame. The probe revealed that nav.enabled was False
+            // 1+ seconds after Initialize. Something in another scene (Overworld controllers,
+            // OverworldManager pause, or the Input System reimport) is disabling the Battle
+            // map after we enable it. Until that culprit is found, this keeps inputs alive.
+            var map = ResolveBattleActionMap();
+            if (map != null && !map.enabled) map.Enable();
+        }
+
+        private void ProbeInputHeartbeat()
+        {
+            if (NavProbeSeconds <= 0f) return;
+            _navProbeAccum += Time.unscaledDeltaTime;
+            if (_navProbeAccum < NavProbeSeconds) return;
+            _navProbeAccum = 0f;
+
+            string confirmState = DescribeActionState(confirmAction);
+            string retreatState = DescribeActionState(retreatAction);
+            string swapState = DescribeActionState(swapAction);
+            string abilityState = DescribeActionState(abilityAction);
+            string navState = DescribeActionState(navigateAction);
+
+            Debug.Log(
+                $"[BattleHud] Probe focus={_focusIndex} appFocused={Application.isFocused} " +
+                $"confirm:[{confirmState}] retreat:[{retreatState}] swap:[{swapState}] ability:[{abilityState}] nav:[{navState}]");
+        }
+
+        private static string DescribeActionState(InputActionReference reference)
+        {
+            if (reference == null) return "ref=null";
+            var action = reference.action;
+            if (action == null) return "action=null";
+            string map = action.actionMap != null ? action.actionMap.name : "<no-map>";
+            string mapEnabled = action.actionMap != null ? action.actionMap.enabled.ToString() : "n/a";
+            return $"{map}/{action.name} actEnabled={action.enabled} mapEnabled={mapEnabled} controls={action.controls.Count}";
+        }
+
+        // ---------- Input callback adapters ----------
+
+        private void OnConfirmPressedCallback(InputAction.CallbackContext ctx)
+        {
+            Debug.Log($"[BattleHud] Confirm action fired (control={ctx.control?.path}, focus={_focusIndex}, pickerOpen={_pickerOpen}).");
+            OnConfirmPressed();
+        }
+
+        private void OnRetreatPressedCallback(InputAction.CallbackContext ctx)
+        {
+            Debug.Log($"[BattleHud] Retreat action fired (control={ctx.control?.path}).");
+            OnRetreatPressed();
+        }
+
+        private void OnSwapPressedCallback(InputAction.CallbackContext ctx)
+        {
+            Debug.Log($"[BattleHud] Swap action fired (control={ctx.control?.path}, focus={_focusIndex}).");
+            OnSwapPressed();
+        }
+
+        private void OnAbilityPressedCallback(InputAction.CallbackContext ctx)
+        {
+            Debug.Log($"[BattleHud] Ability action fired (control={ctx.control?.path}, pickerOpen={_pickerOpen}).");
+            OnAbilityPressed();
+        }
+
+        // ---------- High-level intents ----------
+
+        /// <summary>
+        /// Context-sensitive Confirm:
+        ///   - Picker open -> lock current ability selection and close.
+        ///   - Active card focused -> open the picker for that Pom.
+        ///   - RETREAT button focused -> trigger retreat.
+        ///   - Otherwise (bench focused / BATTLE focused / no focus) -> trigger a BATTLE drop.
+        /// </summary>
+        private void OnConfirmPressed()
+        {
+            if (_pickerOpen)
             {
-                Debug.LogError("[BattleHud] EventSystem unavailable, cannot exit battle.");
+                LockAbilitySelection();
                 return;
             }
-            if (exitButton != null) exitButton.interactable = false;
+            if (IsActiveCardFocused())
+            {
+                OpenAbilityPickerForFocused();
+                return;
+            }
+            if (_focusIndex == RetreatButtonFocusIndex)
+            {
+                OnRetreatPressed();
+                return;
+            }
+            OnBattlePressed();
+        }
+
+        /// <summary>
+        /// One press of BATTLE = one drop. No Start/Drop split; the auto-started Plan phase
+        /// owns Round 1 setup, and every subsequent press progresses the rounds.
+        /// </summary>
+        private void OnBattlePressed()
+        {
+            var bm = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
+            if (bm == null)
+            {
+                Debug.LogError("[BattleHud] BattleManager unavailable.");
+                return;
+            }
+            if (bm.Phase != BattlePhase.WaitingForDrop)
+            {
+                Debug.Log($"[BattleHud] Drop ignored - phase is {bm.Phase}.");
+                return;
+            }
+            bm.RequestDrop();
+            RefreshButtonLabel();
+        }
+
+        private void OnRetreatPressed()
+        {
+            // Picker open -> Retreat acts as Cancel: close the picker without changing the
+            // remembered selection and without ending the battle. The user still has their
+            // active card focused so they can navigate to other cards or BATTLE/RETREAT.
+            if (_pickerOpen)
+            {
+                CancelAbilityPicker();
+                return;
+            }
+
+            if (eventSystem == null)
+            {
+                Debug.LogError("[BattleHud] EventSystem unavailable, cannot retreat.");
+                return;
+            }
             eventSystem.Publish(new BattleEndedEvent(Side.Enemy));
         }
 
-        private void OnDropClicked()
+        private void OnSwapPressed()
         {
-            if (dropButton != null) dropButton.interactable = false;
+            var bm = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
+            if (bm == null) return;
+            if (bm.Phase != BattlePhase.WaitingForDrop) return;
+            if (!IsCardFocused()) return;
 
-            var battleManager = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
-            if (battleManager == null)
+            // Swap focused active slot with the first bench slot. If focus is on bench,
+            // swap that bench slot with the last active slot.
+            if (_focusIndex < BattleManager.MaxActivePoms)
             {
-                Debug.LogError("[BattleHud] BattleManager unavailable, cannot request drop.");
+                int active = Mathf.Clamp(_focusIndex, 0, BattleManager.MaxActivePoms - 1);
+                int benchTarget = BattleManager.MaxActivePoms;
+                if (bm.TrySwap(Side.Player, active, benchTarget))
+                {
+                    RebindPlayerSide(bm);
+                }
+            }
+            else
+            {
+                int activeTarget = BattleManager.MaxActivePoms - 1;
+                if (bm.TrySwap(Side.Player, _focusIndex, activeTarget))
+                {
+                    RebindPlayerSide(bm);
+                }
+            }
+        }
+
+        private void OnAbilityPressed()
+        {
+            // X / F only does anything while the ability picker is open. Picker open/close is
+            // driven exclusively by Confirm per the interaction model.
+            if (!_pickerOpen) return;
+            _abilitySelection = (_abilitySelection + 1) % AbilityPickerView.OptionCount;
+            if (playerAbilityPicker != null) playerAbilityPicker.Refresh(GetFocusedActivePom(), _abilitySelection);
+        }
+
+        private void HandleNavigateInput()
+        {
+            if (navigateAction == null || navigateAction.action == null) return;
+            Vector2 v = navigateAction.action.ReadValue<Vector2>();
+            if (v.sqrMagnitude < 0.25f)
+            {
+                _navCooldown = 0f;
                 return;
             }
-            battleManager.RequestDrop();
+            _navCooldown -= Time.unscaledDeltaTime;
+            if (_navCooldown > 0f) return;
+            _navCooldown = NavRepeatSeconds;
+
+            if (_pickerOpen)
+            {
+                HandlePickerNavigate(v);
+                return;
+            }
+            HandleCardAndButtonNavigate(v);
         }
+
+        private void HandleCardAndButtonNavigate(Vector2 v)
+        {
+            int previous = _focusIndex;
+            int max = FocusableCount - 1;
+            if (_focusIndex == NoFocus)
+            {
+                if (v.y > 0.5f) _focusIndex = max;
+                else if (v.y < -0.5f) _focusIndex = 0;
+            }
+            else
+            {
+                if (v.y > 0.5f) _focusIndex = Mathf.Max(0, _focusIndex - 1);
+                else if (v.y < -0.5f) _focusIndex = Mathf.Min(max, _focusIndex + 1);
+            }
+            if (_focusIndex != previous)
+            {
+                Debug.Log($"[BattleHud] Navigate v=({v.x:F2},{v.y:F2}) focus {previous} -> {_focusIndex}.");
+                RefreshFocus();
+            }
+        }
+
+        private void HandlePickerNavigate(Vector2 v)
+        {
+            int previous = _abilitySelection;
+            int max = AbilityPickerView.OptionCount - 1;
+            if (v.y > 0.5f) _abilitySelection = Mathf.Max(0, _abilitySelection - 1);
+            else if (v.y < -0.5f) _abilitySelection = Mathf.Min(max, _abilitySelection + 1);
+
+            if (_abilitySelection != previous)
+            {
+                Debug.Log($"[BattleHud] Picker nav {previous} -> {_abilitySelection}.");
+                if (playerAbilityPicker != null) playerAbilityPicker.Refresh(GetFocusedActivePom(), _abilitySelection);
+            }
+        }
+
+        // ---------- Ability picker control ----------
+
+        private bool IsActiveCardFocused()
+        {
+            return _focusIndex >= 0 && _focusIndex < BattleManager.MaxActivePoms;
+        }
+
+        private bool IsCardFocused()
+        {
+            return _focusIndex >= 0 && _focusIndex < playerCards.Count;
+        }
+
+        private void OpenAbilityPickerForFocused()
+        {
+            if (playerAbilityPicker == null) return;
+            var pom = GetFocusedActivePom();
+            if (pom == null) return;
+            _abilitySelection = AbilityPickerView.NoneIndex;
+            _pickerOpen = true;
+            playerAbilityPicker.Show(pom, _abilitySelection);
+        }
+
+        private void LockAbilitySelection()
+        {
+            // Ability resolution is still TBD per the design doc; for now we just remember
+            // _abilitySelection so future systems can read the player's choice for the round.
+            // Focus remains on the originating active card so the player can keep navigating.
+            _pickerOpen = false;
+            if (playerAbilityPicker != null) playerAbilityPicker.Hide();
+            Debug.Log($"[BattleHud] Ability locked: pom={_focusIndex}, selection={_abilitySelection}");
+        }
+
+        private void CancelAbilityPicker()
+        {
+            // Close the picker without committing the highlighted selection. _abilitySelection
+            // is left untouched so the previously locked choice persists.
+            _pickerOpen = false;
+            if (playerAbilityPicker != null) playerAbilityPicker.Hide();
+            Debug.Log("[BattleHud] Ability picker cancelled (focus stays on card).");
+        }
+
+        private PomInstance GetFocusedActivePom()
+        {
+            if (!IsActiveCardFocused()) return null;
+            var bm = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
+            if (bm == null) return null;
+            var active = bm.GetActivePoms(Side.Player);
+            return active != null && _focusIndex < active.Count ? active[_focusIndex] : null;
+        }
+
+        // ---------- Event subscribers ----------
 
         private void OnRoundStarted(RoundStartedEvent evt)
         {
             UpdateRoundText(evt.RoundNumber);
-            if (dropButton != null) dropButton.interactable = true;
+            RefreshButtonLabel();
 
-            // The active indicator pins to row 0 (the primary active Pom). The Planning Phase UI
-            // will eventually let the player choose which active row gets the primary indicator.
-            UpdateActiveIndicator(playerActiveIndicator, playerRosterRows, 0);
-            UpdateActiveIndicator(enemyActiveIndicator, enemyRosterRows, 0);
-
-            var battleManager = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
-            if (battleManager != null)
-            {
-                var playerRoster = battleManager.GetRoster(Side.Player);
-                var enemyRoster = battleManager.GetRoster(Side.Enemy);
-                PopulateRosterLabels(playerRosterRowLabels, playerRoster);
-                PopulateRosterLabels(enemyRosterRowLabels, enemyRoster);
-
-                var playerActive = battleManager.GetActivePoms(Side.Player);
-                var enemyActive = battleManager.GetActivePoms(Side.Enemy);
-                UpdateActiveCard(playerActiveTitleText, playerActiveSubText, playerActive);
-                UpdateActiveCard(enemyActiveTitleText, enemyActiveSubText, enemyActive);
-            }
+            var bm = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
+            if (bm == null) return;
+            RebindPlayerSide(bm);
+            RebindEnemySide(bm);
         }
 
         private void OnRoundScored(RoundScoredEvent evt)
         {
-            if (roundScoreText != null) roundScoreText.text = $"{evt.PlayerScore} | {evt.EnemyScore}";
+            if (roundScoreText != null) roundScoreText.text = $"{evt.PlayerScore}   {evt.EnemyScore}";
+            if (roundTotalText != null) roundTotalText.text = (evt.PlayerScore - evt.EnemyScore).ToString();
+            RefreshButtonLabel();
         }
 
         private void OnEnergyChanged(EnergyChangedEvent evt)
         {
-            if (playerEnergyText != null) playerEnergyText.text = $"ENERGY: {evt.PlayerEnergy}";
-            if (enemyEnergyText != null) enemyEnergyText.text = $"ENERGY: {evt.EnemyEnergy}";
+            if (playerEnergyText != null) playerEnergyText.text = $"ENERGY {evt.PlayerEnergy}";
+            if (enemyEnergyText != null) enemyEnergyText.text = $"ENERGY {evt.EnemyEnergy}";
         }
 
         private void OnBattleEnded(BattleEndedEvent evt)
         {
             if (winnerOverlay != null) winnerOverlay.SetActive(true);
             if (winnerText != null) winnerText.text = $"WINNER: {evt.Winner.ToString().ToUpper()}";
-            if (dropButton != null) dropButton.interactable = false;
-            if (startButton != null) startButton.interactable = true;
+            RefreshButtonLabel();
         }
 
-        private void UpdateActiveIndicator(RectTransform indicator, List<RectTransform> rows, int activeIndex)
-        {
-            if (indicator == null || rows == null || rows.Count == 0) return;
-            if (activeIndex < 0 || activeIndex >= rows.Count) return;
-            var row = rows[activeIndex];
-            if (row == null) return;
+        // ---------- View helpers ----------
 
-            indicator.gameObject.SetActive(true);
-            var indicatorPos = indicator.anchoredPosition;
-            indicatorPos.y = row.anchoredPosition.y - row.sizeDelta.y * 0.5f;
-            indicator.anchoredPosition = indicatorPos;
+        private void ResetHudVisuals()
+        {
+            UpdateRoundText(0);
+            if (winnerOverlay != null) winnerOverlay.SetActive(false);
+            if (playerEnergyText != null) playerEnergyText.text = "ENERGY --";
+            if (enemyEnergyText != null) enemyEnergyText.text = "ENERGY --";
+            if (roundScoreText != null) roundScoreText.text = "0   0";
+            if (roundTotalText != null) roundTotalText.text = "0";
+            if (controlHintText != null) controlHintText.text = "Y to swap\nX to ability";
         }
 
-        private void UpdateActiveCard(TMP_Text titleText, TMP_Text subText, IReadOnlyList<PomInstance> activePoms)
+        private void RefreshButtonLabel()
         {
-            if (activePoms == null || activePoms.Count == 0) return;
-            var primary = activePoms[0];
-            if (primary == null || primary.data == null) return;
-
-            int totalBalls = 0;
-            for (int i = 0; i < activePoms.Count; i++)
+            if (battleButtonLabel == null) return;
+            var bm = GameManager.Instance != null ? GameManager.Instance.BattleManager : null;
+            if (bm != null && bm.Phase == BattlePhase.BallsInFlight)
             {
-                var p = activePoms[i];
-                if (p != null) totalBalls += PomBallCount.GetCurrentBallCount(p);
+                battleButtonLabel.text = "...";
+                return;
             }
-
-            if (titleText != null)
-            {
-                titleText.text = activePoms.Count > 1
-                    ? $"Active: {primary.data.DisplayName} Lv.{primary.level} (+{activePoms.Count - 1})"
-                    : $"Active: {primary.data.DisplayName} Lv.{primary.level}";
-            }
-            if (subText != null)
-            {
-                string typeLabel = primary.data.HasSecondaryType
-                    ? $"{primary.data.PrimaryType}/{primary.data.SecondaryType}"
-                    : primary.data.PrimaryType.ToString();
-                subText.text = $"{typeLabel} | Ball x{totalBalls}";
-            }
+            battleButtonLabel.text = "BATTLE";
         }
 
-        private static void PopulateRosterLabels(List<TMP_Text> labels, IReadOnlyList<PomInstance> roster)
+        private void RebindPlayerSide(BattleManager battleManager)
         {
-            if (labels == null || labels.Count == 0) return;
-            for (int i = 0; i < labels.Count; i++)
+            BindCards(playerCards, battleManager.GetRoster(Side.Player));
+            RefreshFocus();
+        }
+
+        private void RebindEnemySide(BattleManager battleManager)
+        {
+            BindCards(enemyCards, battleManager.GetRoster(Side.Enemy));
+        }
+
+        private static void BindCards(List<BattlePomCardView> cards, IReadOnlyList<PomInstance> roster)
+        {
+            if (cards == null) return;
+            for (int i = 0; i < cards.Count; i++)
             {
-                var label = labels[i];
-                if (label == null) continue;
-                if (roster != null && i < roster.Count && roster[i] != null && roster[i].data != null)
-                {
-                    label.text = $"{roster[i].data.DisplayName} Lv.{roster[i].level}";
-                }
-                else
-                {
-                    label.text = "--";
-                }
+                var card = cards[i];
+                if (card == null) continue;
+                if (roster != null && i < roster.Count) card.Bind(roster[i]);
+                else card.Clear();
             }
         }
 
-        private void HideActiveIndicators()
+        private void RefreshFocus()
         {
-            if (playerActiveIndicator != null) playerActiveIndicator.gameObject.SetActive(false);
-            if (enemyActiveIndicator != null) enemyActiveIndicator.gameObject.SetActive(false);
+            for (int i = 0; i < playerCards.Count; i++)
+            {
+                var card = playerCards[i];
+                if (card != null) card.SetFocused(i == _focusIndex);
+            }
+            if (battleButtonFocusOutline != null) battleButtonFocusOutline.SetActive(_focusIndex == BattleButtonFocusIndex);
+            if (retreatButtonFocusOutline != null) retreatButtonFocusOutline.SetActive(_focusIndex == RetreatButtonFocusIndex);
+            // Navigation never opens or closes the ability picker. The picker is controlled
+            // solely by Confirm via OpenAbilityPickerForFocused / LockAbilitySelection.
+        }
+
+        private void ClearAllCards()
+        {
+            for (int i = 0; i < playerCards.Count; i++) playerCards[i]?.Clear();
+            for (int i = 0; i < enemyCards.Count; i++) enemyCards[i]?.Clear();
+            _focusIndex = NoFocus;
+            if (battleButtonFocusOutline != null) battleButtonFocusOutline.SetActive(false);
+            if (retreatButtonFocusOutline != null) retreatButtonFocusOutline.SetActive(false);
+            RefreshFocus();
         }
 
         private void UpdateRoundText(int round)
         {
             if (roundCounterText == null) return;
-            roundCounterText.text = round <= 0 ? "Round -" : $"Round {round}";
+            roundCounterText.text = round <= 0 ? "ROUND -" : $"ROUND {round}";
+        }
+
+        // ---------- Wiring helpers ----------
+
+        private static void WireButton(Button button, System.Action handler)
+        {
+            if (button == null) return;
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(() => handler?.Invoke());
+            button.interactable = true;
+        }
+
+        private static void WireAction(InputActionReference reference, System.Action<InputAction.CallbackContext> handler)
+        {
+            if (reference == null || reference.action == null) return;
+            reference.action.performed -= handler;
+            reference.action.performed += handler;
+            reference.action.Enable();
+        }
+
+        /// <summary>
+        /// Resolves the Battle action map from any of the wired action references and enables
+        /// the entire map. Returns the map (or null) so callers can inspect post-state.
+        /// </summary>
+        private InputActionMap EnableBattleActionMap()
+        {
+            var map = ResolveBattleActionMap();
+            if (map == null)
+            {
+                Debug.LogError("[BattleHud] Could not resolve Battle action map from any reference.");
+                return null;
+            }
+            if (!map.enabled) map.Enable();
+            return map;
+        }
+
+        private InputActionMap ResolveBattleActionMap()
+        {
+            return confirmAction?.action?.actionMap
+                ?? retreatAction?.action?.actionMap
+                ?? swapAction?.action?.actionMap
+                ?? abilityAction?.action?.actionMap
+                ?? navigateAction?.action?.actionMap;
+        }
+
+        /// <summary>
+        /// By default the Input System discards keyboard/gamepad input whenever the Game window
+        /// loses focus (e.g. you click into the Inspector / Console). That presents as "keys
+        /// don't work" even though the action map is enabled. Forcing IgnoreFocus + Run in
+        /// Background keeps Battle navigation working while you're switching panels in-editor.
+        /// </summary>
+        private static void ConfigureInputBackgroundBehavior()
+        {
+            Application.runInBackground = true;
+            if (InputSystem.settings != null)
+            {
+                InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+                InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+            }
+        }
+
+        private static void DiagnoseInputBinding(string label, InputActionReference reference)
+        {
+            if (reference == null)
+            {
+                Debug.LogError($"[BattleHud] {label} action reference is null - not wired in the inspector.");
+                return;
+            }
+            var action = reference.action;
+            if (action == null)
+            {
+                Debug.LogError($"[BattleHud] {label} action could not be resolved from reference '{reference.name}'.");
+                return;
+            }
+            string map = action.actionMap != null ? action.actionMap.name : "<no-map>";
+            Debug.Log($"[BattleHud] {label} -> {map}/{action.name} enabled={action.enabled} bindings={action.bindings.Count}");
+        }
+
+        private static void UnwireAction(InputActionReference reference, System.Action<InputAction.CallbackContext> handler)
+        {
+            if (reference == null || reference.action == null) return;
+            reference.action.performed -= handler;
+            reference.action.Disable();
+        }
+
+        private void ValidateSerializedRefs()
+        {
+            if (battleButton == null) Debug.LogError("[BattleHud] battleButton not assigned!");
+            if (retreatButton == null) Debug.LogError("[BattleHud] retreatButton not assigned!");
+            if (roundCounterText == null) Debug.LogError("[BattleHud] roundCounterText not assigned!");
+            if (playerCards == null || playerCards.Count != BattleManager.MaxRosterPoms)
+            {
+                Debug.LogError($"[BattleHud] playerCards must be exactly {BattleManager.MaxRosterPoms} entries (first {BattleManager.MaxActivePoms} active, last {BattleManager.MaxBenchPoms} bench).");
+            }
+            if (enemyCards == null || enemyCards.Count != BattleManager.MaxRosterPoms)
+            {
+                Debug.LogError($"[BattleHud] enemyCards must be exactly {BattleManager.MaxRosterPoms} entries.");
+            }
+            if (playerAbilityPicker == null) Debug.LogError("[BattleHud] playerAbilityPicker not assigned!");
+            if (battleButtonFocusOutline == null) Debug.LogError("[BattleHud] battleButtonFocusOutline not assigned!");
+            if (retreatButtonFocusOutline == null) Debug.LogError("[BattleHud] retreatButtonFocusOutline not assigned!");
+            if (confirmAction == null) Debug.LogError("[BattleHud] confirmAction not assigned!");
+            if (retreatAction == null) Debug.LogError("[BattleHud] retreatAction not assigned!");
+            if (swapAction == null) Debug.LogError("[BattleHud] swapAction not assigned!");
+            if (abilityAction == null) Debug.LogError("[BattleHud] abilityAction not assigned!");
+            if (navigateAction == null) Debug.LogError("[BattleHud] navigateAction not assigned!");
         }
 
         private void OnDestroy()
         {
-            if (eventSystem == null) return;
-            eventSystem.Unsubscribe<RoundStartedEvent>(OnRoundStarted);
-            eventSystem.Unsubscribe<RoundScoredEvent>(OnRoundScored);
-            eventSystem.Unsubscribe<EnergyChangedEvent>(OnEnergyChanged);
-            eventSystem.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
+            if (eventSystem != null)
+            {
+                eventSystem.Unsubscribe<RoundStartedEvent>(OnRoundStarted);
+                eventSystem.Unsubscribe<RoundScoredEvent>(OnRoundScored);
+                eventSystem.Unsubscribe<EnergyChangedEvent>(OnEnergyChanged);
+                eventSystem.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
+            }
+
+            UnwireAction(confirmAction, OnConfirmPressedCallback);
+            UnwireAction(retreatAction, OnRetreatPressedCallback);
+            UnwireAction(swapAction, OnSwapPressedCallback);
+            UnwireAction(abilityAction, OnAbilityPressedCallback);
+            if (navigateAction != null && navigateAction.action != null) navigateAction.action.Disable();
         }
     }
 }

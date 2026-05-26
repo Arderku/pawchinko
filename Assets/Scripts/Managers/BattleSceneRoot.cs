@@ -61,6 +61,11 @@ namespace Pawchinko
             if (uiManager != null) uiManager.Initialize(eventSystem);
             else Debug.LogError("[BattleSceneRoot] UIManager not assigned!");
 
+            // Auto-enter the Plan phase for Round 1 so the HUD shows rosters + energy from
+            // frame 0. Subscribers (Energy/Scoring/HUD) are now all wired, so the events fire
+            // safely. BattleManager.StartBattle guards re-entry on its own.
+            if (battleManager != null) battleManager.StartBattle();
+
             _initialized = true;
             Debug.Log("[BattleSceneRoot] Initialized");
         }

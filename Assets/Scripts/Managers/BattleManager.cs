@@ -6,37 +6,27 @@ namespace Pawchinko
 {
     /// <summary>
     /// Owns the round-based battle state machine. Each side enters battle with a flexible
-    /// roster of Poms (1..N). At any moment up to <see cref="MaxActivePoms"/> Poms are active
-    /// (spawning balls, using abilities); the remainder sit on the bench recovering AP. Each
-    /// round, both sides drop the sum of their active Poms' ball-count contributions
+    /// roster of 1..<see cref="MaxRosterPoms"/> Poms split into a Battle Zone (the first
+    /// <see cref="MaxActivePoms"/> entries spawn balls + may use abilities) and a Bench Zone
+    /// (the remaining up to <see cref="MaxBenchPoms"/> entries sit out, ready to swap in).
+    /// Each round, both sides drop the sum of their active Poms' ball-count contributions
     /// simultaneously; the round only advances once it has been scored. Battle ends on
     /// BattleEndedEvent.
-    ///
-    /// Pre-Planning-Phase scope: the active set is currently the first <c>min(MaxActivePoms,
-    /// roster.Count)</c> entries; swapping comes with the Planning Phase UI. Players may bring
-    /// fewer than <see cref="MaxActivePoms"/> total Poms - 1, 2, or more all work
-    /// (PAWCHINKO_DESIGN_GUIDE Section 5/6).
     /// </summary>
     public class BattleManager : MonoBehaviour
     {
         public const int MaxActivePoms = 3;
-
-        private enum State
-        {
-            WaitingForStart,
-            WaitingForDrop,
-            BallsInFlight,
-            BattleOver
-        }
+        public const int MaxBenchPoms = 2;
+        public const int MaxRosterPoms = MaxActivePoms + MaxBenchPoms;
 
         [Header("References")]
         [SerializeField] private EventSystem eventSystem;
 
-        [Header("Rosters")]
-        [Tooltip("1..N Pom species the player brings to battle. The first MaxActivePoms entries are active each round; the rest sit on the bench.")]
+        [Header("Rosters (1..5 PomData per side)")]
+        [Tooltip("1..5 Pom species the player brings to battle. First MaxActivePoms (3) are the Battle Zone; remainder is the Bench Zone (up to MaxBenchPoms / 2).")]
         [FormerlySerializedAs("playerPomDefinitions")]
         [SerializeField] private List<PomData> playerPoms = new();
-        [Tooltip("1..N Pom species the enemy brings to battle. Same active/bench split as the player.")]
+        [Tooltip("1..5 Pom species the enemy brings to battle. Same Battle/Bench split as the player.")]
         [FormerlySerializedAs("enemyPomDefinitions")]
         [SerializeField] private List<PomData> enemyPoms = new();
         [SerializeField] private int playerStartingLevel = 1;
@@ -44,11 +34,12 @@ namespace Pawchinko
 
         [Header("State (read-only at runtime)")]
         [SerializeField] private int currentRound;
-        [SerializeField] private State state;
+        [SerializeField] private BattlePhase phase;
         [SerializeField] private List<PomInstance> playerRoster = new();
         [SerializeField] private List<PomInstance> enemyRoster = new();
 
         public int CurrentRound => currentRound;
+        public BattlePhase Phase => phase;
 
         public void Initialize(EventSystem eventSystem)
         {
@@ -59,43 +50,76 @@ namespace Pawchinko
             EnsureRosters();
 
             currentRound = 0;
-            state = State.WaitingForStart;
+            phase = BattlePhase.WaitingForStart;
 
             Debug.Log($"[BattleManager] Initialized (P roster={playerRoster.Count}, E roster={enemyRoster.Count})");
         }
 
-        /// <summary>
-        /// Returns the full roster (active + bench) for the given side.
-        /// </summary>
+        /// <summary>Full roster (Battle Zone + Bench Zone) for the given side.</summary>
         public IReadOnlyList<PomInstance> GetRoster(Side side)
         {
             return side == Side.Player ? playerRoster : enemyRoster;
         }
 
         /// <summary>
-        /// Returns the active Poms for the given side - the first
-        /// <see cref="MaxActivePoms"/> entries of the roster, or fewer if the roster is shorter.
+        /// Battle-Zone Poms for the given side - the first <see cref="MaxActivePoms"/> entries
+        /// of the roster (or fewer if the roster is shorter).
         /// </summary>
         public IReadOnlyList<PomInstance> GetActivePoms(Side side)
         {
             var roster = side == Side.Player ? playerRoster : enemyRoster;
             int active = Mathf.Min(MaxActivePoms, roster.Count);
-            // Allocating a small list each call is fine for the current battle cadence; if this
-            // shows up in a hot path later, replace with a pooled buffer.
             var result = new List<PomInstance>(active);
             for (int i = 0; i < active; i++) result.Add(roster[i]);
             return result;
         }
 
         /// <summary>
-        /// Returns the primary active Pom for the given side (first slot of the active set), or
-        /// null if the roster is empty. Convenience for the HUD's single-card display while the
-        /// Planning Phase UI is still TBD.
+        /// Bench-Zone Poms for the given side - roster entries past
+        /// <see cref="MaxActivePoms"/>, up to <see cref="MaxBenchPoms"/> total.
+        /// </summary>
+        public IReadOnlyList<PomInstance> GetBenchPoms(Side side)
+        {
+            var roster = side == Side.Player ? playerRoster : enemyRoster;
+            int benchStart = MaxActivePoms;
+            if (roster.Count <= benchStart) return System.Array.Empty<PomInstance>();
+            int benchCount = Mathf.Min(MaxBenchPoms, roster.Count - benchStart);
+            var result = new List<PomInstance>(benchCount);
+            for (int i = 0; i < benchCount; i++) result.Add(roster[benchStart + i]);
+            return result;
+        }
+
+        /// <summary>
+        /// Primary active Pom (roster[0]) or null if the roster is empty. Convenience for HUD.
         /// </summary>
         public PomInstance GetActivePom(Side side)
         {
             var roster = side == Side.Player ? playerRoster : enemyRoster;
             return roster.Count > 0 ? roster[0] : null;
+        }
+
+        /// <summary>
+        /// Swaps two roster entries on the given side. Designed for the HUD's "Y to swap" -
+        /// pass an active-zone index (0..MaxActivePoms-1) and a bench-zone index
+        /// (MaxActivePoms..MaxRosterPoms-1). Allowed only between rounds (Phase ==
+        /// WaitingForDrop). Returns true on success.
+        /// </summary>
+        public bool TrySwap(Side side, int rosterIndexA, int rosterIndexB)
+        {
+            if (phase != BattlePhase.WaitingForDrop)
+            {
+                Debug.LogWarning($"[BattleManager] TrySwap ignored - phase is {phase}, must be WaitingForDrop.");
+                return false;
+            }
+            var roster = side == Side.Player ? playerRoster : enemyRoster;
+            if (roster == null) return false;
+            if (rosterIndexA < 0 || rosterIndexA >= roster.Count) return false;
+            if (rosterIndexB < 0 || rosterIndexB >= roster.Count) return false;
+            if (rosterIndexA == rosterIndexB) return false;
+
+            (roster[rosterIndexA], roster[rosterIndexB]) = (roster[rosterIndexB], roster[rosterIndexA]);
+            Debug.Log($"[BattleManager] Swapped {side} roster slots {rosterIndexA} <-> {rosterIndexB}");
+            return true;
         }
 
         private void EnsureRosters()
@@ -109,10 +133,15 @@ namespace Pawchinko
             var roster = new List<PomInstance>();
             if (pomData == null || pomData.Count == 0)
             {
-                Debug.LogError($"[BattleManager] {side} roster is empty - assign at least one PomData in the Inspector!");
+                Debug.LogError($"[BattleManager] {side} roster is empty - assign 1..{MaxRosterPoms} PomData in the Inspector!");
                 return roster;
             }
-            for (int i = 0; i < pomData.Count; i++)
+            if (pomData.Count > MaxRosterPoms)
+            {
+                Debug.LogWarning($"[BattleManager] {side} roster has {pomData.Count} entries; only the first {MaxRosterPoms} will be used (3 Battle + 2 Bench).");
+            }
+            int take = Mathf.Min(pomData.Count, MaxRosterPoms);
+            for (int i = 0; i < take; i++)
             {
                 var data = pomData[i];
                 if (data == null)
@@ -126,22 +155,21 @@ namespace Pawchinko
         }
 
         /// <summary>
-        /// Begins a new battle. Called directly by UI (BattleHud) - not via the bus.
-        /// Publishes BattleStartedEvent first so EnergyManager seeds energy before round 1.
+        /// Begins a new battle. Called by UI (Battle button). Publishes BattleStartedEvent
+        /// first so EnergyManager seeds energy before round 1.
         /// </summary>
         public void StartBattle()
         {
-            if (state != State.WaitingForStart && state != State.BattleOver)
+            if (phase != BattlePhase.WaitingForStart && phase != BattlePhase.BattleOver)
             {
-                Debug.LogWarning("[BattleManager] StartBattle ignored - already in state " + state);
+                Debug.LogWarning("[BattleManager] StartBattle ignored - already in phase " + phase);
                 return;
             }
 
-            // Re-seed Pom runtime instances so a restart after BattleOver resets level/exp/abilities.
             EnsureRosters();
 
             currentRound = 1;
-            state = State.WaitingForDrop;
+            phase = BattlePhase.WaitingForDrop;
 
             Debug.Log($"[BattleManager] Battle started - Round {currentRound}");
             eventSystem.Publish(new BattleStartedEvent());
@@ -149,15 +177,15 @@ namespace Pawchinko
         }
 
         /// <summary>
-        /// Triggers the simultaneous drop for the current round. Called directly by UI. Each
-        /// active Pom on each side spawns its current-level ball count; per-ball source-Pom
-        /// info travels with the ball so ScoringManager can apply per-Pom Power.
+        /// Triggers the simultaneous drop for the current round. Each active Pom on each side
+        /// spawns its current-level ball count; per-ball source-Pom info travels with the ball
+        /// so ScoringManager can apply per-Pom Power.
         /// </summary>
         public void RequestDrop()
         {
-            if (state != State.WaitingForDrop)
+            if (phase != BattlePhase.WaitingForDrop)
             {
-                Debug.LogWarning($"[BattleManager] RequestDrop ignored - state is {state}");
+                Debug.LogWarning($"[BattleManager] RequestDrop ignored - phase is {phase}");
                 return;
             }
 
@@ -180,9 +208,8 @@ namespace Pawchinko
                 return;
             }
 
-            state = State.BallsInFlight;
+            phase = BattlePhase.BallsInFlight;
 
-            // Publish FIRST so ScoringManager knows expected counts before any BallSettledEvent fires.
             eventSystem.Publish(new DropRequestedEvent(playerBalls, enemyBalls));
 
             SpawnSide(ballManager, Side.Player, playerActive);
@@ -210,19 +237,16 @@ namespace Pawchinko
 
         private void OnRoundScored(RoundScoredEvent evt)
         {
-            if (state != State.BallsInFlight) return;
+            if (phase != BattlePhase.BallsInFlight) return;
 
-            // BattleEndedEvent (also published by EnergyManager from this same RoundScoredEvent) will
-            // arrive after this handler if energy hits 0. We optimistically advance here; the
-            // OnBattleEnded handler then pins the state to BattleOver and prevents further drops.
             currentRound++;
-            state = State.WaitingForDrop;
+            phase = BattlePhase.WaitingForDrop;
             eventSystem.Publish(new RoundStartedEvent(currentRound));
         }
 
         private void OnBattleEnded(BattleEndedEvent evt)
         {
-            state = State.BattleOver;
+            phase = BattlePhase.BattleOver;
             Debug.Log($"[BattleManager] Battle over - winner={evt.Winner}");
         }
 
@@ -232,5 +256,14 @@ namespace Pawchinko
             eventSystem.Unsubscribe<RoundScoredEvent>(OnRoundScored);
             eventSystem.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
         }
+    }
+
+    /// <summary>Public phase enum exposed by BattleManager so UI can drive button states.</summary>
+    public enum BattlePhase
+    {
+        WaitingForStart = 0,
+        WaitingForDrop = 1,
+        BallsInFlight = 2,
+        BattleOver = 3
     }
 }

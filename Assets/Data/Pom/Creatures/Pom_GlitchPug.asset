@@ -21,13 +21,13 @@ MonoBehaviour:
   hasSecondaryType: 0
   secondaryType: 0
   maxLevel: 50
-  baseEnergy: 50
+  baseEnergy: 25
   baseStats:
     power: 2.1
     weight: 3
     luck: 5
     control: 1
-  baseBallCount: 1
+  baseBallCount: 3
   ballCountLevelBands:
   - minLevel: 1
     maxLevel: 9
