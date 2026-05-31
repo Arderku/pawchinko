@@ -17,7 +17,7 @@
 
 - Unity 6000.4.0f1, URP 17.4, ugui 2.0 (TMP bundled), Input System 1.19.
 - Working scene flow: [Assets/Scenes/Boot.unity](../Scenes/Boot.unity) loads [Assets/Scenes/Overworld.unity](../Scenes/Overworld.unity), then `SceneFlowManager` additively loads/unloads [Assets/Scenes/Battle.unity](../Scenes/Battle.unity) on encounter/battle-end events. [Assets/Scenes/SampleScene.unity](../Scenes/SampleScene.unity) remains as legacy/reference battle content.
-- Layers defined in `ProjectSettings/TagManager.asset`: `Ball=8`, `Peg=9`, `Wall=10`, `Slot=11`. Collision matrix configured per [PHYSICS_DROP_GUIDE.md](Desgin/PHYSICS_DROP_GUIDE.md) Section 3.
+- Layers defined in `ProjectSettings/TagManager.asset`: `Ball=8`, `Peg=9`, `Wall=10`, `Slot=11`, `Player=12`, `PomPortrait=13`. Collision matrix configured per [PHYSICS_DROP_GUIDE.md](Desgin/PHYSICS_DROP_GUIDE.md) Section 3.
 - Folder layout matches [AI_AGENT_CODE_GUIDE.md](Desgin/AI_AGENT_CODE_GUIDE.md) Section 2.
 
 ### Scripts
@@ -163,6 +163,20 @@ Completed since last review:
 ## Change log
 
 (Reverse chronological. One entry per agent session.)
+
+### 2026-05-31 - Cursor agent (Claude Opus 4.7) - Live 3D Pom portraits in Battle cards
+
+Battle HUD cards now render the species' 3D Pom prefab live via render-to-texture instead of a flat placeholder colour, satisfying the design rule that portraits are real 3D meshes, not 2D art ([PAWCHINKO_DESIGN_GUIDE §6](Desgin/PAWCHINKO_DESIGN_GUIDE.md#6-battle-scene-composition-critical)). The same `PomData.portraitPrefab` will feed the in-world Creature Stage later, so this work shrinks that future task.
+
+- **Data**: added `portraitPrefab` (`GameObject`) + `PortraitPrefab` property to `PomData`. `PomInstance`, `PomFactory`, and `BattleManager` are unchanged — they only deal in data.
+- **Asset pipeline**: new layer `PomPortrait` (slot 13) in `TagManager`; new folder `VisualAssets/Prefabs/Poms/`; built `Pom_1.prefab` from `VisualAssets/Models/Poms/Pom_1/FBX_Pom_01.fbx` with an `Animator` (no controller — adding clips later is asset-only) and material `M_Paw_Base_01.mat`; whole subtree forced onto the `PomPortrait` layer; prefab assigned to `Pom_GlitchPug.asset.portraitPrefab`. New menu item `Pawchinko/Build Pom Visuals (Pom_1 -> GlitchPug)` reproduces the prefab idempotently.
+- **Portrait subsystem**: new `Assets/Scripts/UI/LegacyUI/PomPortraitSlot.cs` owns one `Camera` + `RenderTexture` + spawn anchor per card and pipes the RT into a `RawImage`; new `Assets/Scripts/UI/LegacyUI/PomPortraitStage.cs` holds 5 player + 5 enemy slots and exposes `BindPlayerSide` / `BindEnemySide` / `ClearAll`. Both are pure view — never touch `PomData` and never read input.
+- **Card view**: `BattlePomCardView` gained a `RawImage portraitImage` field. `Bind` enables it, `Clear` disables it — the texture itself is wired at HUD-build time.
+- **HUD wiring**: `BattleHud` gained a `PomPortraitStage portraitStage` ref (with `ValidateSerializedRefs` check) and now calls `portraitStage.BindPlayerSide` / `BindEnemySide` alongside `BindCards` in `RebindPlayerSide` / `RebindEnemySide`.
+- **Builder**: `Pawchinko/Build Battle HUD` now (a) builds card portraits as `RawImage` instead of `Image`, (b) builds the off-screen `PomPortraitStage` (positioned at `y=-10000` so it cannot bleed into the world) with 10 slot cameras whose culling mask is `PomPortrait` only, (c) removes the `PomPortrait` layer bit from every other camera's culling mask in the Battle scene, (d) wires the per-slot RTs into the card `RawImage`s and the stage ref into `BattleHud`. Idempotent; aborts cleanly if the `PomPortrait` layer is missing.
+- **Docs**: updated [PAWCHINKO_DESIGN_GUIDE §6 + §17](Desgin/PAWCHINKO_DESIGN_GUIDE.md) to make explicit that card portraits are live 3D renders sharing the species prefab with the Creature Stage; updated [AI_AGENT_CODE_GUIDE §12](Desgin/AI_AGENT_CODE_GUIDE.md#12-visualassets-conventions) with the new `VisualAssets/Prefabs/Poms/` convention and the rule that `PomData.portraitPrefab` is the single source of truth for a species' visual.
+
+What's *not* in this entry (deliberate): the big in-world Creature Stage (next task — reuses the same prefab), additional species beyond `Pom_GlitchPug`, an `AnimatorController` for `Pom_1` (drops in later as asset-only change), and the root-cause hunt for the `EnsureBattleMapEnabled` brute-force in `BattleHud` (orthogonal to portraits).
 
 ### 2026-05-11 - Cursor agent - UI Toolkit (Boot) + UI agent skills
 

@@ -568,7 +568,9 @@ VisualAssets/
 ├── Models/
 │   ├── Ball/
 │   ├── Board/
-│   └── Environment/
+│   ├── Environment/
+│   └── Poms/
+│       └── Pom_1/            # raw species art: FBX, material, texture
 ├── Materials/
 │   ├── Marble/
 │   └── Plastic/
@@ -579,6 +581,8 @@ VisualAssets/
 ├── VFX/
 ├── Fonts/
 └── Prefabs/
+    ├── Battle/               # gameplay prefabs (Ball, etc.)
+    └── Poms/                 # species visual prefabs (Pom_1.prefab, ...)
 ```
 
 Rules:
@@ -586,6 +590,15 @@ Rules:
 - Categories live under `VisualAssets/`. New categories require a new top-level folder under `VisualAssets/` (don't dump into a wrong category).
 - **Sub-folder by family / feature, not by file type**. `Materials/Marble/`, not `Materials/PNG/`.
 - Filenames `PascalCase`. Optional type suffixes (`_Mat`, `_Tex`, `_Mesh`) — be consistent within a folder.
+
+### Pom visual prefabs
+
+- Raw art (FBX + material + texture) for a species lives under `VisualAssets/Models/Poms/<Species>/`. **Never reference the raw FBX directly from gameplay data.**
+- The gameplay-facing prefab lives under `VisualAssets/Prefabs/Poms/<Species>.prefab` (e.g. `Pom_1.prefab`). The prefab root carries an `Animator` (controller optional — animations are added later by dropping in a clip). The FBX is instantiated as a child, the species material is wired in, and the **entire subtree is on the `PomPortrait` layer**.
+- `PomData.portraitPrefab` (`Assets/Data/Pom/Creatures/*.asset`) is the **single source of truth** linking a species to its visual prefab. The same prefab is used for both the in-world Creature Stage and the card portraits in the Battle HUD.
+- The off-screen `PomPortraitStage` (one `PomPortraitSlot` per card, owning a `Camera` + `RenderTexture`) is the **only** owner of card-portrait `RenderTexture`s. `BattlePomCardView` never owns the RT — it just hosts a `RawImage` whose texture is wired at HUD build time.
+- The `PomPortrait` layer is mandatory: portrait cameras' culling mask is `PomPortrait` only, and the build script removes `PomPortrait` from every other camera in the Battle scene. If the layer is missing, `BuildBattleHud` logs an error and aborts.
+- Adding a new species means: drop the FBX/material/texture under `VisualAssets/Models/Poms/<Species>/`, run `Pawchinko/Build Pom Visuals` (or extend that menu) to produce the prefab, then assign it to the species' `PomData.portraitPrefab` field. No code changes needed.
 
 ---
 

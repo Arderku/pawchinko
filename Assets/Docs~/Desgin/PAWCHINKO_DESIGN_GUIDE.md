@@ -174,6 +174,7 @@ The scene is composed of three logical layers. Top layers render in front of low
   - The **active Poms (up to 3)** are highlighted; any bench Poms read as dimmed / pulled back. *(TBD: whether bench Poms render in the 3D stage at all or only on the 2D roster strip - confirm with design before implementing.)*
   - These are real 3D meshes with idle animation, NOT 2D portraits.
   - They react visually to round events (cheer on bucket hits, flinch on enemy abilities, etc.).
+  - **Card portraits in the 2D UI overlay are also live 3D renders of the same Pom prefab**, drawn off-screen via per-card `Camera` + `RenderTexture` (see §17 and Section 23). The same `PomData.PortraitPrefab` feeds both the in-world Creature Stage and the UI cards, so adding an animation clip is asset-only - no code changes needed.
 
 - **2D UI Overlay Layer (front)**
   - Screen Space (Overlay or Camera) UI placed above the 3D scene:
@@ -429,6 +430,7 @@ This loop is **strategic pressure**, not a damage multiplier:
   - Small faction / team header (example: "Ember").
   - **One row per Pom in the roster** (1..N rows depending on team size). The top rows (up to 3) are the **active** Poms (highlighted); any rows below are the **bench** (visually dimmed / pulled back). Each row shows portrait, name, level. *(TBD: active vs bench visual treatment - confirm with art direction.)*
   - **Per-row HP bars are explicitly NOT part of the canonical layout.** Energy is team-summed (see Section 7).
+  - **Card portraits are live 3D renders, not 2D art.** Each card hosts a `RawImage` whose texture is the `RenderTexture` owned by a matching `PomPortraitSlot` on a hidden `PomPortraitStage` GameObject in the Battle scene. One `Camera` + `RenderTexture` per slot, 5 player + 5 enemy = 10 in total. Cameras isolate the rendering via a dedicated `PomPortrait` layer and culling mask, so adding a portrait never leaks into the main world cameras.
 - **Right edge** - enemy team strip, mirrored layout, also one row per Pom in their roster.
 - **Center stage** - the two 3D plinko boards with live ball physics; bucket value labels overlay each 3D bucket.
 - **Active-row markers** - the active rows (up to 3) on each side are visually distinct from any bench rows (e.g. highlight, indent, badge). The single currently-narrated Pom (if the design ends up surfacing one) gets a secondary marker. *(TBD: confirm whether there is a single "narrating" active Pom per side or all active Poms read as equal.)*

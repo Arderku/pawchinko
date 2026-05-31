@@ -58,6 +58,10 @@ namespace Pawchinko
         [SerializeField] private List<BattlePomCardView> playerCards = new();
         [SerializeField] private List<BattlePomCardView> enemyCards = new();
 
+        [Header("Portrait Stage (live 3D portraits)")]
+        [Tooltip("Off-screen stage that renders the 5+5 Pom prefabs into the cards' RawImages.")]
+        [SerializeField] private PomPortraitStage portraitStage;
+
         [Header("Ability Picker (player side only)")]
         [SerializeField] private AbilityPickerView playerAbilityPicker;
 
@@ -508,13 +512,17 @@ namespace Pawchinko
 
         private void RebindPlayerSide(BattleManager battleManager)
         {
-            BindCards(playerCards, battleManager.GetRoster(Side.Player));
+            var roster = battleManager.GetRoster(Side.Player);
+            BindCards(playerCards, roster);
+            if (portraitStage != null) portraitStage.BindPlayerSide(roster);
             RefreshFocus();
         }
 
         private void RebindEnemySide(BattleManager battleManager)
         {
-            BindCards(enemyCards, battleManager.GetRoster(Side.Enemy));
+            var roster = battleManager.GetRoster(Side.Enemy);
+            BindCards(enemyCards, roster);
+            if (portraitStage != null) portraitStage.BindEnemySide(roster);
         }
 
         private static void BindCards(List<BattlePomCardView> cards, IReadOnlyList<PomInstance> roster)
@@ -655,6 +663,7 @@ namespace Pawchinko
                 Debug.LogError($"[BattleHud] enemyCards must be exactly {BattleManager.MaxRosterPoms} entries.");
             }
             if (playerAbilityPicker == null) Debug.LogError("[BattleHud] playerAbilityPicker not assigned!");
+            if (portraitStage == null) Debug.LogError("[BattleHud] portraitStage not assigned! Run Pawchinko/Build Battle HUD to rebuild.");
             if (battleButtonFocusOutline == null) Debug.LogError("[BattleHud] battleButtonFocusOutline not assigned!");
             if (retreatButtonFocusOutline == null) Debug.LogError("[BattleHud] retreatButtonFocusOutline not assigned!");
             if (confirmAction == null) Debug.LogError("[BattleHud] confirmAction not assigned!");

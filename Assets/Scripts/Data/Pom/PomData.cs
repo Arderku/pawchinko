@@ -90,6 +90,10 @@ namespace Pawchinko
         [Header("Abilities (learnable pool - type must match primary OR secondary)")]
         [SerializeField] private List<PomAbilityData> learnableAbilities = new();
 
+        [Header("Visuals")]
+        [Tooltip("3D prefab spawned on the PomPortraitStage for card portraits and (later) the in-battle creature stage. Should be the species visual root with an Animator (controller optional).")]
+        [SerializeField] private GameObject portraitPrefab;
+
         public string Id => id;
         public string DisplayName => displayName;
         public string Description => description;
@@ -107,6 +111,8 @@ namespace Pawchinko
         public IReadOnlyList<PomBallCountLevelBand> BallCountLevelBands => ballCountLevelBands;
 
         public IReadOnlyList<PomAbilityData> LearnableAbilities => learnableAbilities;
+
+        public GameObject PortraitPrefab => portraitPrefab;
     }
 
     /// <summary>

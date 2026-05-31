@@ -44,3 +44,4 @@ MonoBehaviour:
   learnableAbilities:
   - {fileID: 11400000, guid: 947d2ac537059c1448385c08b1f1278e, type: 2}
   - {fileID: 11400000, guid: 0dbef8da499a39940a06678485c6378b, type: 2}
+  portraitPrefab: {fileID: 2038072894225404734, guid: 7109f86fd5bf88a408bde84d73fda8e4, type: 3}

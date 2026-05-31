@@ -51,8 +51,8 @@ namespace PawchinkoEditor
             var hud = hudGo.AddComponent<BattleHud>();
 
             BuildTopBar(hudGo, out var roundCounterText);
-            BuildPlayerRoster(hudGo, out var playerCards, out var playerAbilityPicker);
-            BuildEnemyRoster(hudGo, out var enemyCards);
+            BuildPlayerRoster(hudGo, out var playerCards, out var playerCardPortraits, out var playerAbilityPicker);
+            BuildEnemyRoster(hudGo, out var enemyCards, out var enemyCardPortraits);
             BuildBottomBar(
                 hudGo,
                 out var battleButton, out var battleButtonLabel, out var battleButtonFocusOutline,
@@ -62,6 +62,12 @@ namespace PawchinkoEditor
                 out var playerEnergyText, out var enemyEnergyText);
             BuildWinnerOverlay(hudGo, out var winnerOverlay, out var winnerText);
 
+            if (!BuildPomPortraitStage(scene, playerCardPortraits, enemyCardPortraits, out var portraitStage))
+            {
+                Debug.LogError("[BuildBattleHud] Portrait stage build failed; aborting before scene save.");
+                return;
+            }
+
             var actions = LoadBattleActions();
             WireBattleHud(
                 hud,
@@ -70,6 +76,7 @@ namespace PawchinkoEditor
                 roundCounterText,
                 playerCards, enemyCards,
                 playerAbilityPicker,
+                portraitStage,
                 playerEnergyText, enemyEnergyText,
                 roundScoreText, roundTotalText,
                 winnerOverlay, winnerText,
@@ -155,9 +162,9 @@ namespace PawchinkoEditor
         private const float RosterTopOffset = -90f;
         private const float RosterSideMargin = 20f;
 
-        private static void BuildPlayerRoster(GameObject parent, out System.Collections.Generic.List<BattlePomCardView> cards, out AbilityPickerView abilityPicker)
+        private static void BuildPlayerRoster(GameObject parent, out System.Collections.Generic.List<BattlePomCardView> cards, out System.Collections.Generic.List<RawImage> portraitImages, out AbilityPickerView abilityPicker)
         {
-            BuildRoster(parent, "PlayerRoster", isPlayer: true, out cards);
+            BuildRoster(parent, "PlayerRoster", isPlayer: true, out cards, out portraitImages);
 
             // Ability picker is positioned to the RIGHT of the player's roster column.
             var pickerGo = new GameObject("PlayerAbilityPicker", typeof(RectTransform));
@@ -172,12 +179,12 @@ namespace PawchinkoEditor
             abilityPicker = BuildAbilityPicker(pickerGo);
         }
 
-        private static void BuildEnemyRoster(GameObject parent, out System.Collections.Generic.List<BattlePomCardView> cards)
+        private static void BuildEnemyRoster(GameObject parent, out System.Collections.Generic.List<BattlePomCardView> cards, out System.Collections.Generic.List<RawImage> portraitImages)
         {
-            BuildRoster(parent, "EnemyRoster", isPlayer: false, out cards);
+            BuildRoster(parent, "EnemyRoster", isPlayer: false, out cards, out portraitImages);
         }
 
-        private static void BuildRoster(GameObject parent, string name, bool isPlayer, out System.Collections.Generic.List<BattlePomCardView> cards)
+        private static void BuildRoster(GameObject parent, string name, bool isPlayer, out System.Collections.Generic.List<BattlePomCardView> cards, out System.Collections.Generic.List<RawImage> portraitImages)
         {
             var root = new GameObject(name, typeof(RectTransform));
             root.transform.SetParent(parent.transform, false);
@@ -189,13 +196,15 @@ namespace PawchinkoEditor
             rt.anchoredPosition = new Vector2(isPlayer ? RosterSideMargin : -RosterSideMargin, RosterTopOffset);
 
             cards = new System.Collections.Generic.List<BattlePomCardView>(BattleManager.MaxRosterPoms);
+            portraitImages = new System.Collections.Generic.List<RawImage>(BattleManager.MaxRosterPoms);
 
             CreateSectionLabel("BattleZoneLabel", root.transform, "BATTLE ZONE", 0f);
 
             float y = -20f;
             for (int i = 0; i < BattleManager.MaxActivePoms; i++)
             {
-                cards.Add(BuildPomCard($"{name}_Card_{i}", root.transform, y, isActiveSlot: true));
+                cards.Add(BuildPomCard($"{name}_Card_{i}", root.transform, y, isActiveSlot: true, out var portrait));
+                portraitImages.Add(portrait);
                 y -= (CardHeight + CardGap);
             }
             y -= (SectionGap - CardGap);
@@ -203,7 +212,8 @@ namespace PawchinkoEditor
             y -= 20f;
             for (int i = BattleManager.MaxActivePoms; i < BattleManager.MaxRosterPoms; i++)
             {
-                cards.Add(BuildPomCard($"{name}_Card_{i}", root.transform, y, isActiveSlot: false));
+                cards.Add(BuildPomCard($"{name}_Card_{i}", root.transform, y, isActiveSlot: false, out var portrait));
+                portraitImages.Add(portrait);
                 y -= (CardHeight + CardGap);
             }
         }
@@ -222,7 +232,7 @@ namespace PawchinkoEditor
             label.fontStyle = FontStyles.Bold;
         }
 
-        private static BattlePomCardView BuildPomCard(string goName, Transform parent, float y, bool isActiveSlot)
+        private static BattlePomCardView BuildPomCard(string goName, Transform parent, float y, bool isActiveSlot, out RawImage portraitImage)
         {
             var card = new GameObject(goName, typeof(RectTransform));
             card.transform.SetParent(parent, false);
@@ -236,7 +246,7 @@ namespace PawchinkoEditor
             var bg = card.AddComponent<Image>();
             bg.color = isActiveSlot ? new Color(0.97f, 0.97f, 0.98f) : new Color(0.92f, 0.92f, 0.93f);
 
-            // Portrait placeholder
+            // Live 3D portrait: RawImage textured at build time by the matching PomPortraitSlot.
             var portrait = new GameObject("Portrait", typeof(RectTransform));
             portrait.transform.SetParent(card.transform, false);
             var prt = portrait.GetComponent<RectTransform>();
@@ -245,8 +255,10 @@ namespace PawchinkoEditor
             prt.pivot = new Vector2(0f, 0.5f);
             prt.sizeDelta = new Vector2(58f, 58f);
             prt.anchoredPosition = new Vector2(8f, 0f);
-            var portraitImg = portrait.AddComponent<Image>();
-            portraitImg.color = Color.white;
+            portraitImage = portrait.AddComponent<RawImage>();
+            portraitImage.color = Color.white;
+            portraitImage.raycastTarget = false;
+            portraitImage.enabled = false;
 
             // Name text
             var nameText = CreateText("Name", card.transform, "POM_NAME", 14f);
@@ -280,6 +292,7 @@ namespace PawchinkoEditor
             so.FindProperty("levelText").objectReferenceValue = levelText;
             so.FindProperty("typeText").objectReferenceValue = typeText;
             so.FindProperty("infoText").objectReferenceValue = infoText;
+            so.FindProperty("portraitImage").objectReferenceValue = portraitImage;
             so.FindProperty("focusOutline").objectReferenceValue = focus;
             so.FindProperty("emptyState").objectReferenceValue = null;
             so.FindProperty("filledState").objectReferenceValue = null;
@@ -535,6 +548,134 @@ namespace PawchinkoEditor
             overlay.SetActive(false);
         }
 
+        // ---------- Portrait stage (off-screen 3D portraits) ----------
+
+        private const string PortraitStageName = "PomPortraitStage";
+        private const float PortraitSlotSpacing = 10f;
+        private const float PortraitEnemyYOffset = 50f;
+        private const float PortraitStageWorldY = -10000f;
+        private const float PortraitCameraDistance = 2f;
+        private const float PortraitCameraOrthoSize = 0.6f;
+
+        // Spawn anchor transform applied to every slot. Tweak these to reframe all portraits at
+        // once. The anchor sits at the centre of the portrait camera's view; the Pom prefab is
+        // spawned as a child of the anchor with identity local TRS, so the anchor *is* the
+        // framing knob. Rotation is split per side so player + enemy Poms face the right way
+        // (each towards their opponent's board).
+        private static readonly Vector3 PortraitAnchorLocalPosition = new Vector3(-0.01f, -0.6f, 0f);
+        private static readonly Vector3 PortraitAnchorPlayerEuler = new Vector3(0f, 241.79f, 0f);
+        private static readonly Vector3 PortraitAnchorEnemyEuler = new Vector3(0f, -67.62f, 0f);
+        private static readonly Vector3 PortraitAnchorLocalScale = new Vector3(2f, 2f, 2f);
+
+        /// <summary>
+        /// Builds the off-screen <see cref="PomPortraitStage"/> for the Battle scene. One
+        /// <see cref="Camera"/> + <see cref="RenderTexture"/> per card slot (5 player + 5
+        /// enemy = 10). Cameras isolate the PomPortrait layer via culling mask so the main
+        /// + UI cameras must exclude PomPortrait themselves. Returns false if the required
+        /// PomPortrait layer is missing.
+        /// </summary>
+        private static bool BuildPomPortraitStage(Scene scene, System.Collections.Generic.List<RawImage> playerImages, System.Collections.Generic.List<RawImage> enemyImages, out PomPortraitStage stage)
+        {
+            stage = null;
+            int portraitLayer = LayerMask.NameToLayer(PomPortraitSlot.PortraitLayerName);
+            if (portraitLayer < 0)
+            {
+                Debug.LogError($"[BuildBattleHud] Layer '{PomPortraitSlot.PortraitLayerName}' missing. Add it via Project Settings > Tags and Layers before running this menu.");
+                return false;
+            }
+
+            DestroyExistingPortraitStage(scene);
+            ExcludePortraitLayerFromOtherCameras(scene, portraitLayer);
+
+            var stageGo = new GameObject(PortraitStageName);
+            SceneManager.MoveGameObjectToScene(stageGo, scene);
+            stageGo.transform.position = new Vector3(0f, PortraitStageWorldY, 0f);
+
+            stage = stageGo.AddComponent<PomPortraitStage>();
+
+            var playerSlots = new System.Collections.Generic.List<PomPortraitSlot>(BattleManager.MaxRosterPoms);
+            var enemySlots = new System.Collections.Generic.List<PomPortraitSlot>(BattleManager.MaxRosterPoms);
+
+            for (int i = 0; i < BattleManager.MaxRosterPoms; i++)
+            {
+                playerSlots.Add(BuildPortraitSlot(stageGo.transform, $"PlayerSlot_{i}", new Vector3(i * PortraitSlotSpacing, 0f, 0f), portraitLayer, PortraitAnchorPlayerEuler, i < playerImages.Count ? playerImages[i] : null));
+                enemySlots.Add(BuildPortraitSlot(stageGo.transform, $"EnemySlot_{i}", new Vector3(i * PortraitSlotSpacing, PortraitEnemyYOffset, 0f), portraitLayer, PortraitAnchorEnemyEuler, i < enemyImages.Count ? enemyImages[i] : null));
+            }
+
+            var so = new SerializedObject(stage);
+            SetListReferences(so.FindProperty("playerSlots"), playerSlots.ConvertAll(s => (Object)s));
+            SetListReferences(so.FindProperty("enemySlots"), enemySlots.ConvertAll(s => (Object)s));
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return true;
+        }
+
+        private static void DestroyExistingPortraitStage(Scene scene)
+        {
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root.name == PortraitStageName) Object.DestroyImmediate(root);
+            }
+        }
+
+        /// <summary>
+        /// Removes the PomPortrait layer from every other camera's culling mask in the scene
+        /// so only the portrait cameras can see the portrait Poms.
+        /// </summary>
+        private static void ExcludePortraitLayerFromOtherCameras(Scene scene, int portraitLayer)
+        {
+            int mask = 1 << portraitLayer;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var cam in root.GetComponentsInChildren<Camera>(true))
+                {
+                    if ((cam.cullingMask & mask) == 0) continue;
+                    cam.cullingMask &= ~mask;
+                    EditorUtility.SetDirty(cam);
+                }
+            }
+        }
+
+        private static PomPortraitSlot BuildPortraitSlot(Transform stageRoot, string goName, Vector3 localPosition, int portraitLayer, Vector3 anchorEuler, RawImage targetImage)
+        {
+            var slotGo = new GameObject(goName);
+            slotGo.transform.SetParent(stageRoot, false);
+            slotGo.transform.localPosition = localPosition;
+            slotGo.layer = portraitLayer;
+
+            var camGo = new GameObject("PortraitCamera");
+            camGo.transform.SetParent(slotGo.transform, false);
+            camGo.transform.localPosition = new Vector3(0f, 0f, -PortraitCameraDistance);
+            camGo.transform.localRotation = Quaternion.identity;
+            camGo.layer = portraitLayer;
+
+            var cam = camGo.AddComponent<Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = PortraitCameraOrthoSize;
+            cam.cullingMask = 1 << portraitLayer;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.95f, 0.95f, 0.97f, 0f);
+            cam.depth = -10f;
+            cam.allowMSAA = false;
+            cam.allowHDR = false;
+            cam.nearClipPlane = 0.05f;
+            cam.farClipPlane = 10f;
+
+            var anchorGo = new GameObject("SpawnAnchor");
+            anchorGo.transform.SetParent(slotGo.transform, false);
+            anchorGo.transform.localPosition = PortraitAnchorLocalPosition;
+            anchorGo.transform.localRotation = Quaternion.Euler(anchorEuler);
+            anchorGo.transform.localScale = PortraitAnchorLocalScale;
+            anchorGo.layer = portraitLayer;
+
+            var slot = slotGo.AddComponent<PomPortraitSlot>();
+            var so = new SerializedObject(slot);
+            so.FindProperty("portraitCamera").objectReferenceValue = cam;
+            so.FindProperty("spawnAnchor").objectReferenceValue = anchorGo.transform;
+            so.FindProperty("targetImage").objectReferenceValue = targetImage;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return slot;
+        }
+
         // ---------- Input action references ----------
 
         private struct BattleInputRefs
@@ -591,6 +732,7 @@ namespace PawchinkoEditor
             System.Collections.Generic.List<BattlePomCardView> playerCards,
             System.Collections.Generic.List<BattlePomCardView> enemyCards,
             AbilityPickerView playerAbilityPicker,
+            PomPortraitStage portraitStage,
             TMP_Text playerEnergyText, TMP_Text enemyEnergyText,
             TMP_Text roundScoreText, TMP_Text roundTotalText,
             GameObject winnerOverlay, TMP_Text winnerText,
@@ -609,6 +751,7 @@ namespace PawchinkoEditor
             SetListReferences(so.FindProperty("enemyCards"), enemyCards.ConvertAll(c => (Object)c));
 
             so.FindProperty("playerAbilityPicker").objectReferenceValue = playerAbilityPicker;
+            so.FindProperty("portraitStage").objectReferenceValue = portraitStage;
             so.FindProperty("playerEnergyText").objectReferenceValue = playerEnergyText;
             so.FindProperty("enemyEnergyText").objectReferenceValue = enemyEnergyText;
             so.FindProperty("roundScoreText").objectReferenceValue = roundScoreText;
