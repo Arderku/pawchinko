@@ -10,23 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 521ddc30887778346988688b1d8c36d9, type: 3}
-  m_Name: Pom_GlitchPug
+  m_Name: Pom_ZenSloth
   m_EditorClassIdentifier: Pawchinko::Pawchinko.PomData
-  id: POM_001
-  displayName: Glitch Pug
-  description: A corrupted little pup that loves unstable peg paths and chaotic score
-    spikes.
+  id: POM_002
+  displayName: Zen Sloth
+  description: A serene drifter that smooths peg paths into tranquil arcs.
   rarity: 0
-  primaryType: 0
+  primaryType: 1
   hasSecondaryType: 0
   secondaryType: 0
   maxLevel: 50
-  baseEnergy: 25
+  baseEnergy: 20
   baseStats:
-    power: 2.1
-    weight: 3
-    luck: 5
-    control: 1
+    power: 1.6
+    weight: 4
+    luck: 3
+    control: 4
   baseBallCount: 3
   ballCountLevelBands:
   - minLevel: 1
@@ -41,7 +40,5 @@ MonoBehaviour:
   - minLevel: 40
     maxLevel: 50
     count: 4
-  learnableAbilities:
-  - {fileID: 11400000, guid: 947d2ac537059c1448385c08b1f1278e, type: 2}
-  - {fileID: 11400000, guid: 0dbef8da499a39940a06678485c6378b, type: 2}
+  learnableAbilities: []
   portraitPrefab: {fileID: 2038072894225404734, guid: 7109f86fd5bf88a408bde84d73fda8e4, type: 3}

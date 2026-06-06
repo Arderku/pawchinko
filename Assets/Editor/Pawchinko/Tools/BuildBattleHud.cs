@@ -155,12 +155,17 @@ namespace PawchinkoEditor
 
         // ---------- Player + Enemy rosters ----------
 
-        private const float CardWidth = 220f;
-        private const float CardHeight = 76f;
-        private const float CardGap = 8f;
-        private const float SectionGap = 14f;
+        private const float CardWidth = 300f;
+        private const float CardHeight = 110f;
+        private const float CardGap = 10f;
+        private const float SectionGap = 16f;
         private const float RosterTopOffset = -90f;
-        private const float RosterSideMargin = 20f;
+        private const float RosterSideMargin = 24f;
+
+        // Portrait sub-layout inside a card.
+        private const float CardPortraitSize = 90f;
+        private const float CardPortraitMargin = 10f;
+        private const float CardTextInset = CardPortraitMargin + CardPortraitSize + 10f; // text edge inset on the portrait side
 
         private static void BuildPlayerRoster(GameObject parent, out System.Collections.Generic.List<BattlePomCardView> cards, out System.Collections.Generic.List<RawImage> portraitImages, out AbilityPickerView abilityPicker)
         {
@@ -203,7 +208,7 @@ namespace PawchinkoEditor
             float y = -20f;
             for (int i = 0; i < BattleManager.MaxActivePoms; i++)
             {
-                cards.Add(BuildPomCard($"{name}_Card_{i}", root.transform, y, isActiveSlot: true, out var portrait));
+                cards.Add(BuildPomCard($"{name}_Card_{i}", root.transform, y, isActiveSlot: true, mirrored: !isPlayer, out var portrait));
                 portraitImages.Add(portrait);
                 y -= (CardHeight + CardGap);
             }
@@ -212,7 +217,7 @@ namespace PawchinkoEditor
             y -= 20f;
             for (int i = BattleManager.MaxActivePoms; i < BattleManager.MaxRosterPoms; i++)
             {
-                cards.Add(BuildPomCard($"{name}_Card_{i}", root.transform, y, isActiveSlot: false, out var portrait));
+                cards.Add(BuildPomCard($"{name}_Card_{i}", root.transform, y, isActiveSlot: false, mirrored: !isPlayer, out var portrait));
                 portraitImages.Add(portrait);
                 y -= (CardHeight + CardGap);
             }
@@ -232,7 +237,7 @@ namespace PawchinkoEditor
             label.fontStyle = FontStyles.Bold;
         }
 
-        private static BattlePomCardView BuildPomCard(string goName, Transform parent, float y, bool isActiveSlot, out RawImage portraitImage)
+        private static BattlePomCardView BuildPomCard(string goName, Transform parent, float y, bool isActiveSlot, bool mirrored, out RawImage portraitImage)
         {
             var card = new GameObject(goName, typeof(RectTransform));
             card.transform.SetParent(parent, false);
@@ -246,43 +251,88 @@ namespace PawchinkoEditor
             var bg = card.AddComponent<Image>();
             bg.color = isActiveSlot ? new Color(0.97f, 0.97f, 0.98f) : new Color(0.92f, 0.92f, 0.93f);
 
+            // Mirrored layout (enemy side): portrait sits on the RIGHT, text block on the LEFT.
+            // Non-mirrored (player side): portrait on the LEFT, text block on the RIGHT.
+            float portraitAnchorX = mirrored ? 1f : 0f;
+            float portraitX = mirrored ? -CardPortraitMargin : CardPortraitMargin;
+            var textAlign = mirrored ? TextAlignmentOptions.Right : TextAlignmentOptions.Left;
+
+            // Text block inset from each card edge.
+            float textLeftInset = mirrored ? 10f : CardTextInset;
+            float textRightInset = mirrored ? CardTextInset : 10f;
+            float textBlockMidX = (textLeftInset - textRightInset) * 0.5f; // anchored at card-center
+
             // Live 3D portrait: RawImage textured at build time by the matching PomPortraitSlot.
             var portrait = new GameObject("Portrait", typeof(RectTransform));
             portrait.transform.SetParent(card.transform, false);
             var prt = portrait.GetComponent<RectTransform>();
-            prt.anchorMin = new Vector2(0f, 0.5f);
-            prt.anchorMax = new Vector2(0f, 0.5f);
-            prt.pivot = new Vector2(0f, 0.5f);
-            prt.sizeDelta = new Vector2(58f, 58f);
-            prt.anchoredPosition = new Vector2(8f, 0f);
+            prt.anchorMin = new Vector2(portraitAnchorX, 0.5f);
+            prt.anchorMax = new Vector2(portraitAnchorX, 0.5f);
+            prt.pivot = new Vector2(portraitAnchorX, 0.5f);
+            prt.sizeDelta = new Vector2(CardPortraitSize, CardPortraitSize);
+            prt.anchoredPosition = new Vector2(portraitX, 0f);
             portraitImage = portrait.AddComponent<RawImage>();
             portraitImage.color = Color.white;
             portraitImage.raycastTarget = false;
             portraitImage.enabled = false;
 
-            // Name text
-            var nameText = CreateText("Name", card.transform, "POM_NAME", 14f);
-            SetAnchored(nameText.rectTransform, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(74f, -6f), new Vector2(-90f, 18f));
+            // Name text (top row, full width of the text block).
+            var nameText = CreateText("Name", card.transform, "POM_NAME", 18f);
+            SetAnchored(nameText.rectTransform,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(textBlockMidX, -8f), new Vector2(-(textLeftInset + textRightInset), 22f));
             nameText.color = Color.black;
-            nameText.alignment = TextAlignmentOptions.Left;
+            nameText.alignment = textAlign;
             nameText.fontStyle = FontStyles.Bold;
 
-            // Level + Type row
-            var levelText = CreateText("Level", card.transform, "LV 10", 11f);
-            SetAnchored(levelText.rectTransform, new Vector2(0f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, 1f), new Vector2(74f, -26f), new Vector2(-12f, 16f));
+            // Level + Type row: each is anchored to one edge of the text block.
+            //   Player (non-mirrored): Level pinned to text-block LEFT edge (next to portrait),
+            //                          Type  pinned to text-block RIGHT edge (card edge).
+            //   Enemy  (mirrored):     Level pinned to text-block RIGHT edge (next to portrait),
+            //                          Type  pinned to text-block LEFT edge (card edge).
+            // Text-block width is (CardWidth - textLeftInset - textRightInset) = 180 in both layouts.
+            // Each half therefore gets up to 90px; use 85 to leave a small visual gap in the middle.
+            const float HalfRowWidth = 85f;
+
+            var levelText = CreateText("Level", card.transform, "LV 10", 13f);
+            if (mirrored)
+            {
+                SetAnchored(levelText.rectTransform,
+                    new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                    new Vector2(-textRightInset, -34f), new Vector2(HalfRowWidth, 18f));
+            }
+            else
+            {
+                SetAnchored(levelText.rectTransform,
+                    new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                    new Vector2(textLeftInset, -34f), new Vector2(HalfRowWidth, 18f));
+            }
             levelText.color = new Color(0.25f, 0.25f, 0.3f);
-            levelText.alignment = TextAlignmentOptions.Left;
+            levelText.alignment = textAlign;
 
-            var typeText = CreateText("Type", card.transform, "TYPE", 11f);
-            SetAnchored(typeText.rectTransform, new Vector2(0.5f, 1f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(0f, -26f), new Vector2(-12f, 16f));
+            var typeText = CreateText("Type", card.transform, "TYPE", 13f);
+            if (mirrored)
+            {
+                SetAnchored(typeText.rectTransform,
+                    new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
+                    new Vector2(textLeftInset, -34f), new Vector2(HalfRowWidth, 18f));
+            }
+            else
+            {
+                SetAnchored(typeText.rectTransform,
+                    new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                    new Vector2(-textRightInset, -34f), new Vector2(HalfRowWidth, 18f));
+            }
             typeText.color = new Color(0.25f, 0.25f, 0.3f);
-            typeText.alignment = TextAlignmentOptions.Left;
+            typeText.alignment = textAlign;
 
-            // Info row
-            var infoText = CreateText("Info", card.transform, "BALLS x1", 11f);
-            SetAnchored(infoText.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 0f), new Vector2(74f, 8f), new Vector2(-90f, 16f));
+            // Info row (bottom of the text block, full width).
+            var infoText = CreateText("Info", card.transform, "BALLS x1", 13f);
+            SetAnchored(infoText.rectTransform,
+                new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(textBlockMidX, 10f), new Vector2(-(textLeftInset + textRightInset), 18f));
             infoText.color = new Color(0.35f, 0.35f, 0.4f);
-            infoText.alignment = TextAlignmentOptions.Left;
+            infoText.alignment = textAlign;
 
             var focus = BuildFocusOutline(card.transform, thickness: 4f);
 
@@ -555,7 +605,9 @@ namespace PawchinkoEditor
         private const float PortraitEnemyYOffset = 50f;
         private const float PortraitStageWorldY = -10000f;
         private const float PortraitCameraDistance = 2f;
-        private const float PortraitCameraOrthoSize = 0.6f;
+        // Perspective FoV. 35° at 2-unit distance ≈ 1.26 units tall view, matching the previous
+        // orthographic framing while giving a proper 3D look.
+        private const float PortraitCameraFieldOfView = 35f;
 
         // Spawn anchor transform applied to every slot. Tweak these to reframe all portraits at
         // once. The anchor sits at the centre of the portrait camera's view; the Pom prefab is
@@ -649,8 +701,8 @@ namespace PawchinkoEditor
             camGo.layer = portraitLayer;
 
             var cam = camGo.AddComponent<Camera>();
-            cam.orthographic = true;
-            cam.orthographicSize = PortraitCameraOrthoSize;
+            cam.orthographic = false;
+            cam.fieldOfView = PortraitCameraFieldOfView;
             cam.cullingMask = 1 << portraitLayer;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.95f, 0.95f, 0.97f, 0f);

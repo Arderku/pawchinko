@@ -1,10 +1,21 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Pawchinko
 {
     /// <summary>
-    /// Instantiates Ball prefabs at a configured spawn point with a small random horizontal
-    /// jitter and a tiny random torque so successive drops don't look cloned.
+    /// Wave-based ball spawner. Instead of dumping every requested ball at a single point
+    /// (which causes overlapping spawns and immediate ball-vs-ball collisions), this spawner
+    /// owns a row of <see cref="zoneCount"/> invisible spawn zones across the top of a board
+    /// and drains a request queue across them: each zone spawns at most one ball at a time
+    /// and only releases its next ball once the previous one has dropped clear of the zone.
+    /// The wave pattern the player sees ("first six fall, next six follow") is a natural
+    /// emergent property; no central wave scheduler is needed.
+    ///
+    /// Callers (BallManager) enqueue with <see cref="Enqueue"/> and listen to
+    /// <see cref="BallSpawned"/> to wire each new ball into per-ball systems (settle event,
+    /// scoring, etc.).
     /// </summary>
     public class BallSpawner : MonoBehaviour
     {
@@ -12,30 +23,140 @@ namespace Pawchinko
         [SerializeField] private Ball ballPrefab;
 
         [Header("References")]
+        [Tooltip("Center of the spawn row. The N zones are spread evenly to the left and right of this transform.")]
         [SerializeField] private Transform spawnPoint;
+        [Tooltip("Parent transform that all spawned balls are nested under, so the scene stays tidy.")]
         [SerializeField] private Transform ballContainer;
+        [Tooltip("Optional material override applied to every spawned ball (e.g. per-side colour).")]
         [SerializeField] private Material ballMaterialOverride;
 
-        [Header("Settings")]
-        [SerializeField] private float spawnXJitter = 0.01f;
+        [Header("Spawn Row")]
+        [Tooltip("How many invisible spawn zones the row contains. Each zone spawns one ball at a time.")]
+        [Min(1)]
+        [SerializeField] private int zoneCount = 6;
+        [Tooltip("Half-width of the spawn row, in metres. Zones are evenly distributed across [-half, +half] along the X axis around spawnPoint.")]
+        [Min(0f)]
+        [SerializeField] private float zoneSpreadHalfWidth = 1.2f;
+        [Tooltip("How far (m) below a zone's centre the ball must drop before that zone is considered clear and may spawn its next ball.")]
+        [Min(0f)]
+        [SerializeField] private float zoneClearMargin = 0.55f;
+        [Tooltip("Random X jitter (m) applied inside each zone so balls in the same wave don't look mechanically aligned.")]
+        [Min(0f)]
+        [SerializeField] private float zoneXJitter = 0.04f;
+        [Tooltip("Random Z jitter (m) per ball. Combined with the Ball prefab's now-unfrozen Z, this breaks the 'all balls in the same plane' symmetry that creates stuck equilibria on peg tops.")]
+        [Min(0f)]
+        [SerializeField] private float zoneZJitter = 0.03f;
+        [Tooltip("Minimum interval (s) between any two spawns from this spawner. Keeps balls from spawning on the same physics tick.")]
+        [Min(0f)]
+        [SerializeField] private float minIntervalBetweenSpawns = 0.04f;
+
+        [Header("Per-Ball")]
+        [Tooltip("Small random torque applied to each spawned ball so identical drops don't look cloned.")]
         [SerializeField] private Vector3 spawnTorqueJitter = new(0.5f, 0f, 0.5f);
 
+        private struct PendingSpawn
+        {
+            public int Id;
+            public Side Side;
+            public PomInstance SourcePom;
+        }
+
+        private readonly Queue<PendingSpawn> _pending = new();
+        private Ball[] _zoneLastBall;
+        private int _nextZoneIndex;
+        private float _nextSpawnEarliest;
+
+        /// <summary>Raised once for each ball this spawner actually instantiates.</summary>
+        public event Action<Ball> BallSpawned;
+
+        /// <summary>Total balls currently waiting in the queue, not yet instantiated.</summary>
+        public int PendingCount => _pending.Count;
+
+        private void Awake()
+        {
+            _zoneLastBall = new Ball[Mathf.Max(1, zoneCount)];
+        }
+
         /// <summary>
-        /// Spawns a single ball at the spawn point, applies jitter, and assigns id/side/source.
+        /// Queues a ball for spawning. The actual instantiation happens later from
+        /// <see cref="Update"/> as soon as a zone is free.
         /// </summary>
-        public Ball Spawn(int id, Side side, PomInstance sourcePom)
+        public void Enqueue(int id, Side side, PomInstance sourcePom)
         {
             if (ballPrefab == null)
             {
                 Debug.LogError("[BallSpawner] ballPrefab not assigned!");
-                return null;
+                return;
             }
+            _pending.Enqueue(new PendingSpawn { Id = id, Side = side, SourcePom = sourcePom });
+        }
 
+        private void Update()
+        {
+            if (_pending.Count == 0) return;
+            if (Time.time < _nextSpawnEarliest) return;
+            EnsureZoneBuffer();
+
+            int zones = _zoneLastBall.Length;
+            // One pass round-robin through zones; spawn into every free one we encounter.
+            // We do not loop "forever" within a single frame even if many zones are free
+            // because minIntervalBetweenSpawns gates successive spawns to keep them from
+            // landing on the same physics tick.
+            for (int step = 0; step < zones && _pending.Count > 0; step++)
+            {
+                int zone = (_nextZoneIndex + step) % zones;
+                if (!IsZoneClear(zone)) continue;
+
+                var req = _pending.Dequeue();
+                var ball = SpawnAtZone(zone, req);
+                if (ball != null)
+                {
+                    _zoneLastBall[zone] = ball;
+                    BallSpawned?.Invoke(ball);
+                    _nextSpawnEarliest = Time.time + minIntervalBetweenSpawns;
+                    _nextZoneIndex = (zone + 1) % zones;
+                    // Only spawn one per frame to respect the interval; rest happens next frame.
+                    return;
+                }
+            }
+        }
+
+        private void EnsureZoneBuffer()
+        {
+            int n = Mathf.Max(1, zoneCount);
+            if (_zoneLastBall == null || _zoneLastBall.Length != n)
+            {
+                _zoneLastBall = new Ball[n];
+            }
+        }
+
+        private bool IsZoneClear(int zoneIndex)
+        {
+            var last = _zoneLastBall[zoneIndex];
+            if (last == null) return true; // never spawned or destroyed
+            // Ball must have dropped clear of its zone's vertical band.
+            float zoneCenterY = GetZoneCenter(zoneIndex).y;
+            return last.transform.position.y < zoneCenterY - zoneClearMargin;
+        }
+
+        private Vector3 GetZoneCenter(int zoneIndex)
+        {
             Vector3 origin = spawnPoint != null ? spawnPoint.position : transform.position;
-            Vector3 pos = origin + new Vector3(Random.Range(-spawnXJitter, spawnXJitter), 0f, 0f);
+            int zones = Mathf.Max(1, zoneCount);
+            if (zones == 1) return origin;
+            float t = (zones == 1) ? 0.5f : (float)zoneIndex / (zones - 1);
+            float x = origin.x - zoneSpreadHalfWidth + 2f * zoneSpreadHalfWidth * t;
+            return new Vector3(x, origin.y, origin.z);
+        }
+
+        private Ball SpawnAtZone(int zoneIndex, PendingSpawn req)
+        {
+            Vector3 pos = GetZoneCenter(zoneIndex);
+            pos.x += UnityEngine.Random.Range(-zoneXJitter, zoneXJitter);
+            pos.z += UnityEngine.Random.Range(-zoneZJitter, zoneZJitter);
 
             Ball ball = Instantiate(ballPrefab, pos, Quaternion.identity, ballContainer);
-            ball.Init(id, side, sourcePom);
+            ball.Init(req.Id, req.Side, req.SourcePom);
 
             if (ballMaterialOverride != null)
             {
@@ -47,13 +168,29 @@ namespace Pawchinko
             {
                 ball.Body.maxAngularVelocity = 50f;
                 ball.Body.AddTorque(new Vector3(
-                    Random.Range(-spawnTorqueJitter.x, spawnTorqueJitter.x),
-                    Random.Range(-spawnTorqueJitter.y, spawnTorqueJitter.y),
-                    Random.Range(-spawnTorqueJitter.z, spawnTorqueJitter.z)
+                    UnityEngine.Random.Range(-spawnTorqueJitter.x, spawnTorqueJitter.x),
+                    UnityEngine.Random.Range(-spawnTorqueJitter.y, spawnTorqueJitter.y),
+                    UnityEngine.Random.Range(-spawnTorqueJitter.z, spawnTorqueJitter.z)
                 ), ForceMode.Impulse);
             }
 
             return ball;
+        }
+
+        private void OnDrawGizmos()
+        {
+            // Visualise the zone row in the editor without polluting the scene with GameObjects.
+            Gizmos.color = new Color(0.2f, 0.9f, 1f, 0.55f);
+            int zones = Mathf.Max(1, zoneCount);
+            Vector3 origin = spawnPoint != null ? spawnPoint.position : transform.position;
+            for (int i = 0; i < zones; i++)
+            {
+                float t = (zones == 1) ? 0.5f : (float)i / (zones - 1);
+                float x = origin.x - zoneSpreadHalfWidth + 2f * zoneSpreadHalfWidth * t;
+                var p = new Vector3(x, origin.y, origin.z);
+                Gizmos.DrawWireSphere(p, 0.12f);
+                Gizmos.DrawLine(p, p + new Vector3(0f, -zoneClearMargin, 0f));
+            }
         }
     }
 }
