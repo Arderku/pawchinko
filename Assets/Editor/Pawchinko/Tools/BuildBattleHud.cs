@@ -621,10 +621,12 @@ namespace PawchinkoEditor
 
         /// <summary>
         /// Builds the off-screen <see cref="PomPortraitStage"/> for the Battle scene. One
-        /// <see cref="Camera"/> + <see cref="RenderTexture"/> per card slot (5 player + 5
-        /// enemy = 10). Cameras isolate the PomPortrait layer via culling mask so the main
-        /// + UI cameras must exclude PomPortrait themselves. Returns false if the required
-        /// PomPortrait layer is missing.
+        /// shared <see cref="Camera"/> + a single atlas <see cref="RenderTexture"/> serves
+        /// every card slot (5 player + 5 enemy = 10 cells of one atlas). Per-slot framing
+        /// is preserved by giving each slot its own CameraAnchor that the stage teleports
+        /// the shared camera to before rendering that cell. The shared camera isolates the
+        /// PomPortrait layer via culling mask, so the main + UI cameras must exclude that
+        /// layer themselves. Returns false if the PomPortrait layer is missing.
         /// </summary>
         private static bool BuildPomPortraitStage(Scene scene, System.Collections.Generic.List<RawImage> playerImages, System.Collections.Generic.List<RawImage> enemyImages, out PomPortraitStage stage)
         {
@@ -645,6 +647,9 @@ namespace PawchinkoEditor
 
             stage = stageGo.AddComponent<PomPortraitStage>();
 
+            // Single shared camera, child of the stage. The stage repositions it per-render.
+            var sharedCam = BuildSharedPortraitCamera(stageGo.transform, portraitLayer);
+
             var playerSlots = new System.Collections.Generic.List<PomPortraitSlot>(BattleManager.MaxRosterPoms);
             var enemySlots = new System.Collections.Generic.List<PomPortraitSlot>(BattleManager.MaxRosterPoms);
 
@@ -655,10 +660,40 @@ namespace PawchinkoEditor
             }
 
             var so = new SerializedObject(stage);
+            so.FindProperty("sharedCamera").objectReferenceValue = sharedCam;
             SetListReferences(so.FindProperty("playerSlots"), playerSlots.ConvertAll(s => (Object)s));
             SetListReferences(so.FindProperty("enemySlots"), enemySlots.ConvertAll(s => (Object)s));
             so.ApplyModifiedPropertiesWithoutUndo();
             return true;
+        }
+
+        /// <summary>
+        /// Builds the single shared portrait camera, child of the stage. Initial pose is
+        /// irrelevant - the stage repositions it per-render. Disabled by default so the
+        /// pipeline does not render it during the normal camera pass; the stage drives
+        /// Camera.Render() manually from LateUpdate.
+        /// </summary>
+        private static Camera BuildSharedPortraitCamera(Transform stageRoot, int portraitLayer)
+        {
+            var camGo = new GameObject("SharedPortraitCamera");
+            camGo.transform.SetParent(stageRoot, false);
+            camGo.transform.localPosition = Vector3.zero;
+            camGo.transform.localRotation = Quaternion.identity;
+            camGo.layer = portraitLayer;
+
+            var cam = camGo.AddComponent<Camera>();
+            cam.orthographic = false;
+            cam.fieldOfView = PortraitCameraFieldOfView;
+            cam.cullingMask = 1 << portraitLayer;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.95f, 0.95f, 0.97f, 0f);
+            cam.depth = -10f;
+            cam.allowMSAA = false;
+            cam.allowHDR = false;
+            cam.nearClipPlane = 0.05f;
+            cam.farClipPlane = 10f;
+            cam.enabled = false;
+            return cam;
         }
 
         private static void DestroyExistingPortraitStage(Scene scene)
@@ -687,30 +722,21 @@ namespace PawchinkoEditor
             }
         }
 
+        /// <summary>
+        /// Builds one portrait slot. A slot owns two empty Transforms:
+        /// * <c>SpawnAnchor</c> - where the Pom prefab is instantiated; pose this to frame
+        ///   the Pom inside its portrait.
+        /// * <c>CameraAnchor</c> - the pose the shared camera teleports to before rendering
+        ///   this slot. Placed at <c>(0, 0, -PortraitCameraDistance)</c> in the slot's local
+        ///   space so the camera looks down its -Z toward the SpawnAnchor, matching the
+        ///   previous per-slot-camera framing exactly.
+        /// </summary>
         private static PomPortraitSlot BuildPortraitSlot(Transform stageRoot, string goName, Vector3 localPosition, int portraitLayer, Vector3 anchorEuler, RawImage targetImage)
         {
             var slotGo = new GameObject(goName);
             slotGo.transform.SetParent(stageRoot, false);
             slotGo.transform.localPosition = localPosition;
             slotGo.layer = portraitLayer;
-
-            var camGo = new GameObject("PortraitCamera");
-            camGo.transform.SetParent(slotGo.transform, false);
-            camGo.transform.localPosition = new Vector3(0f, 0f, -PortraitCameraDistance);
-            camGo.transform.localRotation = Quaternion.identity;
-            camGo.layer = portraitLayer;
-
-            var cam = camGo.AddComponent<Camera>();
-            cam.orthographic = false;
-            cam.fieldOfView = PortraitCameraFieldOfView;
-            cam.cullingMask = 1 << portraitLayer;
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.95f, 0.95f, 0.97f, 0f);
-            cam.depth = -10f;
-            cam.allowMSAA = false;
-            cam.allowHDR = false;
-            cam.nearClipPlane = 0.05f;
-            cam.farClipPlane = 10f;
 
             var anchorGo = new GameObject("SpawnAnchor");
             anchorGo.transform.SetParent(slotGo.transform, false);
@@ -719,10 +745,16 @@ namespace PawchinkoEditor
             anchorGo.transform.localScale = PortraitAnchorLocalScale;
             anchorGo.layer = portraitLayer;
 
+            var camAnchorGo = new GameObject("CameraAnchor");
+            camAnchorGo.transform.SetParent(slotGo.transform, false);
+            camAnchorGo.transform.localPosition = new Vector3(0f, 0f, -PortraitCameraDistance);
+            camAnchorGo.transform.localRotation = Quaternion.identity;
+            camAnchorGo.layer = portraitLayer;
+
             var slot = slotGo.AddComponent<PomPortraitSlot>();
             var so = new SerializedObject(slot);
-            so.FindProperty("portraitCamera").objectReferenceValue = cam;
             so.FindProperty("spawnAnchor").objectReferenceValue = anchorGo.transform;
+            so.FindProperty("cameraAnchor").objectReferenceValue = camAnchorGo.transform;
             so.FindProperty("targetImage").objectReferenceValue = targetImage;
             so.ApplyModifiedPropertiesWithoutUndo();
             return slot;
