@@ -51,6 +51,10 @@ namespace Pawchinko
         [Tooltip("Sideways offset (m) applied during hard dislodge.")]
         [SerializeField] private float hardDislodgeOffset = 0.04f;
 
+        [Header("Labels")]
+        [Tooltip("Optional 3D power label baked under the ball prefab. Updated once at Init from the source Pom's Power stat.")]
+        [SerializeField] private BallPowerLabel powerLabel;
+
         public int Id => id;
         public Side Side => side;
         public PomType Type => type;
@@ -90,6 +94,15 @@ namespace Pawchinko
             _stallTime = 0f;
             _nudgeCount = 0;
             _hasSampledPos = false;
+
+            // Power readout floats above the ball. Hidden automatically for 1× balls.
+            if (powerLabel != null)
+            {
+                float power = sourcePom != null && sourcePom.data != null && sourcePom.data.BaseStats != null
+                    ? sourcePom.data.BaseStats.power
+                    : 1f;
+                powerLabel.SetPower(power);
+            }
         }
 
         private void FixedUpdate()
