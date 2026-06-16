@@ -33,6 +33,7 @@ namespace Pawchinko
 
         private GameObject _spawned;
         private int _portraitLayer = -1;
+        private bool _layerResolved;
 
         public PomInstance CurrentInstance { get; private set; }
         public Transform CameraAnchor => cameraAnchor;
@@ -40,12 +41,24 @@ namespace Pawchinko
 
         private void Awake()
         {
+            ResolvePortraitLayer();
+            // Only hide if no Pom has been bound yet. BattleSceneRoot.Awake() routes through
+            // BattleHud.Initialize -> portraitStage.BindPlayerSide -> slot.SetPom during its
+            // own Awake; if Unity's Awake order parks this slot's Awake AFTER that call, we
+            // would otherwise overwrite a freshly-bound portrait with HideImage() and the
+            // card would render blank "sometimes" depending on script order.
+            if (_spawned == null) HideImage();
+        }
+
+        private void ResolvePortraitLayer()
+        {
+            if (_layerResolved) return;
             _portraitLayer = LayerMask.NameToLayer(PortraitLayerName);
+            _layerResolved = true;
             if (_portraitLayer < 0)
             {
                 Debug.LogError($"[PomPortraitSlot] Layer '{PortraitLayerName}' is missing. Add it in Project Settings > Tags and Layers.");
             }
-            HideImage();
         }
 
         /// <summary>
@@ -65,6 +78,10 @@ namespace Pawchinko
         /// </summary>
         public void SetPom(PomInstance instance)
         {
+            // Resolve lazily so we still set the layer correctly if SetPom races ahead of
+            // this slot's own Awake (BattleSceneRoot.Awake chain - see Awake comment).
+            ResolvePortraitLayer();
+
             DestroySpawned();
 
             CurrentInstance = instance;

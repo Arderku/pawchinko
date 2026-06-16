@@ -57,9 +57,9 @@ namespace PawchinkoEditor
                 hudGo,
                 out var battleButton, out var battleButtonLabel, out var battleButtonFocusOutline,
                 out var retreatButton, out var retreatButtonFocusOutline,
-                out var controlHintText,
-                out var roundScoreText, out var roundTotalText,
-                out var playerEnergyText, out var enemyEnergyText);
+                out var controlHintText);
+            BuildEnergyBar(hudGo, out var energyBar);
+            BuildPopupLayer(hudGo, out var popupLayer, out var scorePopupTemplate);
             BuildWinnerOverlay(hudGo, out var winnerOverlay, out var winnerText);
 
             if (!BuildPomPortraitStage(scene, playerCardPortraits, enemyCardPortraits, out var portraitStage))
@@ -77,8 +77,7 @@ namespace PawchinkoEditor
                 playerCards, enemyCards,
                 playerAbilityPicker,
                 portraitStage,
-                playerEnergyText, enemyEnergyText,
-                roundScoreText, roundTotalText,
+                energyBar, popupLayer, scorePopupTemplate, canvas.GetComponent<Canvas>(),
                 winnerOverlay, winnerText,
                 controlHintText,
                 actions.confirm, actions.retreat, actions.swap, actions.ability, actions.navigate);
@@ -463,9 +462,7 @@ namespace PawchinkoEditor
         private static void BuildBottomBar(GameObject parent,
             out Button battleButton, out TMP_Text battleButtonLabel, out GameObject battleButtonFocusOutline,
             out Button retreatButton, out GameObject retreatButtonFocusOutline,
-            out TMP_Text controlHintText,
-            out TMP_Text roundScoreText, out TMP_Text roundTotalText,
-            out TMP_Text playerEnergyText, out TMP_Text enemyEnergyText)
+            out TMP_Text controlHintText)
         {
             // Battle + Retreat buttons (bottom-left stack)
             var actionStack = new GameObject("ActionStack", typeof(RectTransform));
@@ -489,60 +486,143 @@ namespace PawchinkoEditor
             hintRt.anchoredPosition = new Vector2(0f, 6f);
             controlHintText.alignment = TextAlignmentOptions.Center;
             controlHintText.color = new Color(0.3f, 0.3f, 0.35f);
+        }
 
-            // Score readout bottom center
-            var scoreStack = new GameObject("ScoreStack", typeof(RectTransform));
-            scoreStack.transform.SetParent(parent.transform, false);
-            var ssRt = scoreStack.GetComponent<RectTransform>();
-            ssRt.anchorMin = new Vector2(0.5f, 0f);
-            ssRt.anchorMax = new Vector2(0.5f, 0f);
-            ssRt.pivot = new Vector2(0.5f, 0f);
-            ssRt.sizeDelta = new Vector2(500f, 150f);
-            ssRt.anchoredPosition = new Vector2(0f, 30f);
+        private const float EnergyBarWidth = 820f;
+        private const float EnergyBarHeight = 38f;
 
-            var scoreBg = scoreStack.AddComponent<Image>();
-            scoreBg.color = new Color(0.85f, 0.85f, 0.88f);
+        private static void BuildEnergyBar(GameObject parent, out TugOfWarBar energyBar)
+        {
+            // Container sits at bottom-center, just above the very bottom of the screen.
+            var container = new GameObject("EnergyBar", typeof(RectTransform));
+            container.transform.SetParent(parent.transform, false);
+            var crt = container.GetComponent<RectTransform>();
+            crt.anchorMin = new Vector2(0.5f, 0f);
+            crt.anchorMax = new Vector2(0.5f, 0f);
+            crt.pivot = new Vector2(0.5f, 0f);
+            crt.sizeDelta = new Vector2(EnergyBarWidth, EnergyBarHeight + 36f);
+            crt.anchoredPosition = new Vector2(0f, 26f);
 
-            roundScoreText = CreateText("RoundScore", scoreStack.transform, "0   0", 56f);
-            var rsRt = roundScoreText.rectTransform;
-            rsRt.anchorMin = new Vector2(0f, 1f);
-            rsRt.anchorMax = new Vector2(1f, 1f);
-            rsRt.pivot = new Vector2(0.5f, 1f);
-            rsRt.sizeDelta = new Vector2(0f, 70f);
-            rsRt.anchoredPosition = new Vector2(0f, -10f);
-            roundScoreText.alignment = TextAlignmentOptions.Center;
-            roundScoreText.color = Color.black;
+            // Track (the actual bar). Background frame + the two color fills + center marker.
+            var track = new GameObject("Track", typeof(RectTransform), typeof(Image));
+            track.transform.SetParent(container.transform, false);
+            var trt = track.GetComponent<RectTransform>();
+            trt.anchorMin = new Vector2(0.5f, 0f);
+            trt.anchorMax = new Vector2(0.5f, 0f);
+            trt.pivot = new Vector2(0.5f, 0f);
+            trt.sizeDelta = new Vector2(EnergyBarWidth, EnergyBarHeight);
+            trt.anchoredPosition = new Vector2(0f, 0f);
+            track.GetComponent<Image>().color = new Color(0.12f, 0.12f, 0.16f, 0.85f);
 
-            roundTotalText = CreateText("RoundTotal", scoreStack.transform, "0", 56f);
-            var rtRt = roundTotalText.rectTransform;
-            rtRt.anchorMin = new Vector2(0f, 0f);
-            rtRt.anchorMax = new Vector2(1f, 0f);
-            rtRt.pivot = new Vector2(0.5f, 0f);
-            rtRt.sizeDelta = new Vector2(0f, 70f);
-            rtRt.anchoredPosition = new Vector2(0f, 6f);
-            roundTotalText.alignment = TextAlignmentOptions.Center;
-            roundTotalText.color = Color.black;
+            var playerFill = new GameObject("PlayerFill", typeof(RectTransform), typeof(Image));
+            playerFill.transform.SetParent(track.transform, false);
+            var pfImg = playerFill.GetComponent<Image>();
+            pfImg.color = new Color(0.25f, 0.55f, 0.95f);
+            var pfRt = playerFill.GetComponent<RectTransform>();
+            pfRt.anchorMin = new Vector2(0f, 0f);
+            pfRt.anchorMax = new Vector2(0f, 1f);
+            pfRt.pivot = new Vector2(0f, 0.5f);
+            pfRt.sizeDelta = new Vector2(EnergyBarWidth * 0.5f, 0f);
+            pfRt.anchoredPosition = new Vector2(0f, 0f);
 
-            // Energy texts (small, under each side's roster)
-            playerEnergyText = CreateText("PlayerEnergy", parent.transform, "ENERGY --", 14f);
-            var peRt = playerEnergyText.rectTransform;
-            peRt.anchorMin = new Vector2(0f, 1f);
-            peRt.anchorMax = new Vector2(0f, 1f);
-            peRt.pivot = new Vector2(0f, 1f);
-            peRt.sizeDelta = new Vector2(CardWidth, 20f);
-            peRt.anchoredPosition = new Vector2(RosterSideMargin, RosterTopOffset - (CardHeight + CardGap) * BattleManager.MaxRosterPoms - SectionGap - 30f);
-            playerEnergyText.alignment = TextAlignmentOptions.Center;
-            playerEnergyText.color = Color.black;
+            var enemyFill = new GameObject("EnemyFill", typeof(RectTransform), typeof(Image));
+            enemyFill.transform.SetParent(track.transform, false);
+            var efImg = enemyFill.GetComponent<Image>();
+            efImg.color = new Color(0.95f, 0.3f, 0.35f);
+            var efRt = enemyFill.GetComponent<RectTransform>();
+            efRt.anchorMin = new Vector2(1f, 0f);
+            efRt.anchorMax = new Vector2(1f, 1f);
+            efRt.pivot = new Vector2(1f, 0.5f);
+            efRt.sizeDelta = new Vector2(EnergyBarWidth * 0.5f, 0f);
+            efRt.anchoredPosition = new Vector2(0f, 0f);
 
-            enemyEnergyText = CreateText("EnemyEnergy", parent.transform, "ENERGY --", 14f);
-            var eeRt = enemyEnergyText.rectTransform;
-            eeRt.anchorMin = new Vector2(1f, 1f);
-            eeRt.anchorMax = new Vector2(1f, 1f);
-            eeRt.pivot = new Vector2(1f, 1f);
-            eeRt.sizeDelta = new Vector2(CardWidth, 20f);
-            eeRt.anchoredPosition = new Vector2(-RosterSideMargin, RosterTopOffset - (CardHeight + CardGap) * BattleManager.MaxRosterPoms - SectionGap - 30f);
-            enemyEnergyText.alignment = TextAlignmentOptions.Center;
-            enemyEnergyText.color = Color.black;
+            var marker = new GameObject("Marker", typeof(RectTransform), typeof(Image));
+            marker.transform.SetParent(track.transform, false);
+            marker.GetComponent<Image>().color = new Color(1f, 0.95f, 0.4f);
+            var mrt = marker.GetComponent<RectTransform>();
+            mrt.anchorMin = new Vector2(0f, 0.5f);
+            mrt.anchorMax = new Vector2(0f, 0.5f);
+            mrt.pivot = new Vector2(0.5f, 0.5f);
+            mrt.sizeDelta = new Vector2(6f, EnergyBarHeight + 14f);
+            mrt.anchoredPosition = new Vector2(EnergyBarWidth * 0.5f, 0f);
+
+            // Numeric labels above the track on each side
+            var playerLabel = CreateText("PlayerLabel", container.transform, "0", 22f);
+            playerLabel.color = new Color(0.85f, 0.92f, 1f);
+            playerLabel.fontStyle = FontStyles.Bold;
+            playerLabel.alignment = TextAlignmentOptions.MidlineLeft;
+            var plRt = playerLabel.rectTransform;
+            plRt.anchorMin = new Vector2(0f, 0f);
+            plRt.anchorMax = new Vector2(0f, 0f);
+            plRt.pivot = new Vector2(0f, 0f);
+            plRt.sizeDelta = new Vector2(180f, 28f);
+            plRt.anchoredPosition = new Vector2(8f, EnergyBarHeight + 4f);
+
+            var enemyLabel = CreateText("EnemyLabel", container.transform, "0", 22f);
+            enemyLabel.color = new Color(1f, 0.88f, 0.88f);
+            enemyLabel.fontStyle = FontStyles.Bold;
+            enemyLabel.alignment = TextAlignmentOptions.MidlineRight;
+            var elRt = enemyLabel.rectTransform;
+            elRt.anchorMin = new Vector2(1f, 0f);
+            elRt.anchorMax = new Vector2(1f, 0f);
+            elRt.pivot = new Vector2(1f, 0f);
+            elRt.sizeDelta = new Vector2(180f, 28f);
+            elRt.anchoredPosition = new Vector2(-8f, EnergyBarHeight + 4f);
+
+            // Component wiring
+            energyBar = container.AddComponent<TugOfWarBar>();
+            var so = new SerializedObject(energyBar);
+            so.FindProperty("track").objectReferenceValue = trt;
+            so.FindProperty("playerFill").objectReferenceValue = pfImg;
+            so.FindProperty("enemyFill").objectReferenceValue = efImg;
+            so.FindProperty("marker").objectReferenceValue = mrt;
+            so.FindProperty("playerLabel").objectReferenceValue = playerLabel;
+            so.FindProperty("enemyLabel").objectReferenceValue = enemyLabel;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void BuildPopupLayer(GameObject parent, out RectTransform popupLayer, out ScorePopup template)
+        {
+            // Full-canvas-sized layer that is the LAST sibling so popups render on top of the
+            // cards/bar but below the winner overlay (winner overlay is added after).
+            var go = new GameObject("PopupLayer", typeof(RectTransform));
+            go.transform.SetParent(parent.transform, false);
+            popupLayer = go.GetComponent<RectTransform>();
+            StretchToParent(popupLayer);
+            // Don't intercept clicks - popups are decorative.
+            var cg = go.AddComponent<CanvasGroup>();
+            cg.blocksRaycasts = false;
+            cg.interactable = false;
+
+            var templateGo = new GameObject("ScorePopupTemplate", typeof(RectTransform), typeof(CanvasGroup));
+            templateGo.transform.SetParent(popupLayer, false);
+            var trt = templateGo.GetComponent<RectTransform>();
+            trt.anchorMin = new Vector2(0.5f, 0.5f);
+            trt.anchorMax = new Vector2(0.5f, 0.5f);
+            trt.pivot = new Vector2(0.5f, 0.5f);
+            trt.sizeDelta = new Vector2(140f, 60f);
+
+            var label = CreateText("Label", templateGo.transform, "+0", 42f);
+            label.alignment = TextAlignmentOptions.Center;
+            label.fontStyle = FontStyles.Bold;
+            label.color = Color.white;
+            label.outlineWidth = 0.2f;
+            label.outlineColor = new Color(0f, 0f, 0f, 0.85f);
+            var lrt = label.rectTransform;
+            lrt.anchorMin = Vector2.zero;
+            lrt.anchorMax = Vector2.one;
+            lrt.pivot = new Vector2(0.5f, 0.5f);
+            lrt.offsetMin = Vector2.zero;
+            lrt.offsetMax = Vector2.zero;
+
+            template = templateGo.AddComponent<ScorePopup>();
+            var so = new SerializedObject(template);
+            var labelProp = so.FindProperty("label");
+            if (labelProp != null) labelProp.objectReferenceValue = label;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            // Template stays disabled - we Instantiate() and SetActive(true) per popup.
+            templateGo.SetActive(false);
         }
 
         private static Button BuildButton(Transform parent, string goName, string label, Vector2 anchoredPos, out TMP_Text labelText, out GameObject focusOutline)
@@ -817,8 +897,7 @@ namespace PawchinkoEditor
             System.Collections.Generic.List<BattlePomCardView> enemyCards,
             AbilityPickerView playerAbilityPicker,
             PomPortraitStage portraitStage,
-            TMP_Text playerEnergyText, TMP_Text enemyEnergyText,
-            TMP_Text roundScoreText, TMP_Text roundTotalText,
+            TugOfWarBar energyBar, RectTransform popupLayer, ScorePopup scorePopupTemplate, Canvas hudCanvas,
             GameObject winnerOverlay, TMP_Text winnerText,
             TMP_Text controlHintText,
             InputActionReference confirm, InputActionReference retreat, InputActionReference swap, InputActionReference ability, InputActionReference navigate)
@@ -836,10 +915,10 @@ namespace PawchinkoEditor
 
             so.FindProperty("playerAbilityPicker").objectReferenceValue = playerAbilityPicker;
             so.FindProperty("portraitStage").objectReferenceValue = portraitStage;
-            so.FindProperty("playerEnergyText").objectReferenceValue = playerEnergyText;
-            so.FindProperty("enemyEnergyText").objectReferenceValue = enemyEnergyText;
-            so.FindProperty("roundScoreText").objectReferenceValue = roundScoreText;
-            so.FindProperty("roundTotalText").objectReferenceValue = roundTotalText;
+            so.FindProperty("energyBar").objectReferenceValue = energyBar;
+            so.FindProperty("popupLayer").objectReferenceValue = popupLayer;
+            so.FindProperty("scorePopupTemplate").objectReferenceValue = scorePopupTemplate;
+            so.FindProperty("hudCanvas").objectReferenceValue = hudCanvas;
             so.FindProperty("winnerOverlay").objectReferenceValue = winnerOverlay;
             so.FindProperty("winnerText").objectReferenceValue = winnerText;
             so.FindProperty("controlHintText").objectReferenceValue = controlHintText;

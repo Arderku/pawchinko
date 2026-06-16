@@ -69,6 +69,13 @@ namespace Pawchinko
                 enemyLanded++;
             }
 
+            // Per-ball broadcast for the floating popup + tug-of-war bar update. Suppress when
+            // the ball missed every scoring slot (value <= 0) so we don't fly empty labels.
+            if (scored > 0)
+            {
+                eventSystem.Publish(new BallScoredEvent(evt.Side, scored, evt.ContactPoint));
+            }
+
             string pomName = evt.SourcePom != null && evt.SourcePom.data != null ? evt.SourcePom.data.DisplayName : "(null)";
             Debug.Log($"[ScoringManager] {evt.Side} {pomName} slot={evt.SlotIndex} slotValue={slotValue} scored={scored} (round={currentRound} {playerLanded}/{playerExpected} {enemyLanded}/{enemyExpected})");
 

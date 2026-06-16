@@ -73,7 +73,8 @@ namespace Pawchinko
         {
             ball.Settled -= OnBallSettled;
             if (eventSystem == null) return;
-            eventSystem.Publish(new BallSettledEvent(ball.Id, ball.Side, slot.SlotIndex, ball.SourcePom));
+            Vector3 contactPoint = ball != null ? ball.transform.position : slot.transform.position;
+            eventSystem.Publish(new BallSettledEvent(ball.Id, ball.Side, slot.SlotIndex, ball.SourcePom, contactPoint));
         }
 
         private void OnDestroy()

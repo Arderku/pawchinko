@@ -40,6 +40,7 @@ namespace Pawchinko
         private Rect[] _playerCellRects;
         private Rect[] _enemyCellRects;
         private int _cols;
+        private bool _initialized;
         private const int Rows = 2;
         private const int PlayerRow = 1;   // top row of atlas
         private const int EnemyRow = 0;    // bottom row of atlas
@@ -48,6 +49,18 @@ namespace Pawchinko
 
         private void Awake()
         {
+            EnsureInitialized();
+        }
+
+        /// <summary>
+        /// Idempotent stage setup. Public so callers that drive Bind* during BattleSceneRoot.Awake
+        /// (before Unity has run our own Awake) can force the atlas + slot wiring to happen
+        /// first - otherwise the RawImages would be bound to a still-null texture and the
+        /// portraits would render blank "sometimes" depending on Awake ordering.
+        /// </summary>
+        private void EnsureInitialized()
+        {
+            if (_initialized) return;
             _cols = Mathf.Max(playerSlots?.Count ?? 0, enemySlots?.Count ?? 0);
             if (_cols <= 0)
             {
@@ -60,6 +73,7 @@ namespace Pawchinko
             BuildCellRects();
             ConfigureSlots(playerSlots, _playerCellRects);
             ConfigureSlots(enemySlots, _enemyCellRects);
+            _initialized = true;
         }
 
         private void CreateAtlas()
@@ -147,10 +161,18 @@ namespace Pawchinko
         }
 
         /// <summary>Binds the player roster to the player-side portrait slots.</summary>
-        public void BindPlayerSide(IReadOnlyList<PomInstance> roster) => BindSide(playerSlots, roster);
+        public void BindPlayerSide(IReadOnlyList<PomInstance> roster)
+        {
+            EnsureInitialized();
+            BindSide(playerSlots, roster);
+        }
 
         /// <summary>Binds the enemy roster to the enemy-side portrait slots.</summary>
-        public void BindEnemySide(IReadOnlyList<PomInstance> roster) => BindSide(enemySlots, roster);
+        public void BindEnemySide(IReadOnlyList<PomInstance> roster)
+        {
+            EnsureInitialized();
+            BindSide(enemySlots, roster);
+        }
 
         /// <summary>Clears all portraits on both sides.</summary>
         public void ClearAll()

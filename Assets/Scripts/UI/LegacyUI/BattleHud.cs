@@ -65,13 +65,21 @@ namespace Pawchinko
         [Header("Ability Picker (player side only)")]
         [SerializeField] private AbilityPickerView playerAbilityPicker;
 
-        [Header("Energy + Score Readouts")]
-        [SerializeField] private TMP_Text playerEnergyText;
-        [SerializeField] private TMP_Text enemyEnergyText;
-        [Tooltip("Per-side round score - e.g. '80   40'")]
-        [SerializeField] private TMP_Text roundScoreText;
-        [Tooltip("Single big number under the score line - showing the running diff (player - enemy).")]
-        [SerializeField] private TMP_Text roundTotalText;
+        [Header("Energy Bar (tug-of-war)")]
+        [Tooltip("Tug-of-war bar at the bottom. Animates between player and enemy energy.")]
+        [SerializeField] private TugOfWarBar energyBar;
+        [Tooltip("Canvas parent under which score popups spawn (must live on the HUD canvas).")]
+        [SerializeField] private RectTransform popupLayer;
+        [Tooltip("Prefab/template used to spawn a +N flying popup when a ball lands. Cloned on demand.")]
+        [SerializeField] private ScorePopup scorePopupTemplate;
+        [Tooltip("Color used for player-side popups.")]
+        [SerializeField] private Color playerPopupColor = new(0.25f, 0.55f, 0.95f);
+        [Tooltip("Color used for enemy-side popups.")]
+        [SerializeField] private Color enemyPopupColor = new(0.95f, 0.3f, 0.35f);
+        [Tooltip("Camera used to project ball world positions into HUD canvas space. Defaults to Camera.main.")]
+        [SerializeField] private Camera worldCamera;
+        [Tooltip("Canvas this HUD belongs to. Required to convert screen->local space for popups.")]
+        [SerializeField] private Canvas hudCanvas;
 
         [Header("Winner Overlay")]
         [SerializeField] private GameObject winnerOverlay;
@@ -116,7 +124,8 @@ namespace Pawchinko
             ConfigureInputBackgroundBehavior();
 
             this.eventSystem.Subscribe<RoundStartedEvent>(OnRoundStarted);
-            this.eventSystem.Subscribe<RoundScoredEvent>(OnRoundScored);
+            this.eventSystem.Subscribe<BattleStartedEvent>(OnBattleStarted);
+            this.eventSystem.Subscribe<BallScoredEvent>(OnBallScored);
             this.eventSystem.Subscribe<EnergyChangedEvent>(OnEnergyChanged);
             this.eventSystem.Subscribe<BattleEndedEvent>(OnBattleEnded);
 
@@ -465,17 +474,56 @@ namespace Pawchinko
             RebindEnemySide(bm);
         }
 
-        private void OnRoundScored(RoundScoredEvent evt)
+        private void OnBattleStarted(BattleStartedEvent evt)
         {
-            if (roundScoreText != null) roundScoreText.text = $"{evt.PlayerScore}   {evt.EnemyScore}";
-            if (roundTotalText != null) roundTotalText.text = (evt.PlayerScore - evt.EnemyScore).ToString();
-            RefreshButtonLabel();
+            // Wait one frame so EnergyManager.OnBattleStarted has run and PlayerMax/EnemyMax
+            // are populated. Initialize is invoked in scene-root order; either order is safe
+            // because we just read the values lazily here.
+            var em = GameManager.Instance != null ? GameManager.Instance.EnergyManager : null;
+            if (em != null && energyBar != null)
+            {
+                energyBar.Configure(em.PlayerMax, em.EnemyMax);
+            }
+        }
+
+        private void OnBallScored(BallScoredEvent evt)
+        {
+            SpawnScorePopup(evt.Side, evt.Value, evt.WorldPos);
         }
 
         private void OnEnergyChanged(EnergyChangedEvent evt)
         {
-            if (playerEnergyText != null) playerEnergyText.text = $"ENERGY {evt.PlayerEnergy}";
-            if (enemyEnergyText != null) enemyEnergyText.text = $"ENERGY {evt.EnemyEnergy}";
+            if (energyBar != null) energyBar.SetEnergies(evt.PlayerEnergy, evt.EnemyEnergy);
+        }
+
+        private void SpawnScorePopup(Side side, int value, Vector3 worldPos)
+        {
+            if (scorePopupTemplate == null || popupLayer == null) return;
+            var cam = worldCamera != null ? worldCamera : Camera.main;
+            if (cam == null) return;
+
+            Vector2 screenStart = cam.WorldToScreenPoint(worldPos);
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(popupLayer, screenStart,
+                    hudCanvas != null && hudCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : hudCanvas?.worldCamera,
+                    out Vector2 localStart))
+            {
+                return;
+            }
+
+            Vector2 localTarget = Vector2.zero;
+            if (energyBar != null)
+            {
+                Vector3 barWorld = energyBar.GetSideAnchorWorld(side, hudCanvas != null ? hudCanvas.worldCamera : null);
+                // Bar lives on the HUD canvas; its world point can be projected through the
+                // canvas's world camera (or none for Overlay) directly into popupLayer space.
+                Camera screenCam = hudCanvas != null && hudCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : (hudCanvas != null ? hudCanvas.worldCamera : null);
+                Vector2 barScreen = RectTransformUtility.WorldToScreenPoint(screenCam, barWorld);
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(popupLayer, barScreen, screenCam, out localTarget);
+            }
+
+            var popup = Instantiate(scorePopupTemplate, popupLayer);
+            popup.gameObject.SetActive(true);
+            popup.Begin($"+{value}", side == Side.Player ? playerPopupColor : enemyPopupColor, localStart, localTarget);
         }
 
         private void OnBattleEnded(BattleEndedEvent evt)
@@ -491,10 +539,7 @@ namespace Pawchinko
         {
             UpdateRoundText(0);
             if (winnerOverlay != null) winnerOverlay.SetActive(false);
-            if (playerEnergyText != null) playerEnergyText.text = "ENERGY --";
-            if (enemyEnergyText != null) enemyEnergyText.text = "ENERGY --";
-            if (roundScoreText != null) roundScoreText.text = "0   0";
-            if (roundTotalText != null) roundTotalText.text = "0";
+            if (energyBar != null) energyBar.Configure(0, 0);
             if (controlHintText != null) controlHintText.text = "Y to swap\nX to ability";
         }
 
@@ -664,6 +709,10 @@ namespace Pawchinko
             }
             if (playerAbilityPicker == null) Debug.LogError("[BattleHud] playerAbilityPicker not assigned!");
             if (portraitStage == null) Debug.LogError("[BattleHud] portraitStage not assigned! Run Pawchinko/Build Battle HUD to rebuild.");
+            if (energyBar == null) Debug.LogError("[BattleHud] energyBar not assigned! Run Pawchinko/Build Battle HUD to rebuild.");
+            if (popupLayer == null) Debug.LogError("[BattleHud] popupLayer not assigned! Run Pawchinko/Build Battle HUD to rebuild.");
+            if (scorePopupTemplate == null) Debug.LogError("[BattleHud] scorePopupTemplate not assigned! Run Pawchinko/Build Battle HUD to rebuild.");
+            if (hudCanvas == null) Debug.LogError("[BattleHud] hudCanvas not assigned! Run Pawchinko/Build Battle HUD to rebuild.");
             if (battleButtonFocusOutline == null) Debug.LogError("[BattleHud] battleButtonFocusOutline not assigned!");
             if (retreatButtonFocusOutline == null) Debug.LogError("[BattleHud] retreatButtonFocusOutline not assigned!");
             if (confirmAction == null) Debug.LogError("[BattleHud] confirmAction not assigned!");
@@ -678,7 +727,8 @@ namespace Pawchinko
             if (eventSystem != null)
             {
                 eventSystem.Unsubscribe<RoundStartedEvent>(OnRoundStarted);
-                eventSystem.Unsubscribe<RoundScoredEvent>(OnRoundScored);
+                eventSystem.Unsubscribe<BattleStartedEvent>(OnBattleStarted);
+                eventSystem.Unsubscribe<BallScoredEvent>(OnBallScored);
                 eventSystem.Unsubscribe<EnergyChangedEvent>(OnEnergyChanged);
                 eventSystem.Unsubscribe<BattleEndedEvent>(OnBattleEnded);
             }

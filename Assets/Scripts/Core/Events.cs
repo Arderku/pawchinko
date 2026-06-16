@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Pawchinko
 {
     /// <summary>
@@ -67,7 +69,8 @@ namespace Pawchinko
     /// Published when a ball physically settles in a slot trigger. SourcePom is the active Pom
     /// instance that spawned this ball - scoring uses it to apply per-Pom Power (and later
     /// stat-driven modifiers). May be null only if the ball was spawned without a Pom (debug
-    /// paths).
+    /// paths). ContactPoint is the slot's world position - used by UI systems to start a
+    /// score popup animation from where the ball landed.
     /// </summary>
     public class BallSettledEvent
     {
@@ -75,13 +78,35 @@ namespace Pawchinko
         public Side Side { get; }
         public int SlotIndex { get; }
         public PomInstance SourcePom { get; }
+        public Vector3 ContactPoint { get; }
 
-        public BallSettledEvent(int ballId, Side side, int slotIndex, PomInstance sourcePom)
+        public BallSettledEvent(int ballId, Side side, int slotIndex, PomInstance sourcePom, Vector3 contactPoint)
         {
             BallId = ballId;
             Side = side;
             SlotIndex = slotIndex;
             SourcePom = sourcePom;
+            ContactPoint = contactPoint;
+        }
+    }
+
+    /// <summary>
+    /// Published by ScoringManager every time a ball lands in a scoring slot and produces a
+    /// positive value. Carries enough info for the UI to spawn a flying "+N" popup that
+    /// travels from the ball world position to the tug-of-war bar, and for EnergyManager to
+    /// chip away at the OPPOSING side's energy in real time (per-ball, not per-round).
+    /// </summary>
+    public class BallScoredEvent
+    {
+        public Side Side { get; }
+        public int Value { get; }
+        public Vector3 WorldPos { get; }
+
+        public BallScoredEvent(Side side, int value, Vector3 worldPos)
+        {
+            Side = side;
+            Value = value;
+            WorldPos = worldPos;
         }
     }
 
