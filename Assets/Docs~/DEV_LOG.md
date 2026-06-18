@@ -164,6 +164,20 @@ Completed since last review:
 
 (Reverse chronological. One entry per agent session.)
 
+### 2026-06-18 - Cursor agent (Claude Opus 4.8) - Balls are plain physics bodies (tilted board + Wall containment)
+
+The board now has a physical back panel and an invisible front glass on the `Wall` layer, and the board itself is tilted. That makes both the old code-level Z-position lock and the scripted corrective forces wrong: a world-axis `FreezePositionZ` can't follow a tilted plane (balls dropped in a straight vertical line and clipped pegs), and the anti-stuck watchdog's `transform.position` writes shoved balls straight through the new colliders. Reverted the ball to a plain Unity physics body contained by real geometry.
+
+- **`Ball.cs`**: removed `lateralGravity`, the position-based stall watchdog (`FixedUpdate`), `ApplyAntiStuckNudge` (impulse + torque + hard `transform.position` dislodge), and the `Body.sleepThreshold = 0` override. Kept only `Init`, the settle path (`HandleSlotEntered`), and the `Settled` event. The ball applies **zero** scripted forces now — gravity + collisions only.
+- **`Ball.prefab`**: cleared the Rigidbody constraint mask (`m_Constraints: 8 -> 0`, i.e. dropped `FreezePositionZ`) so the ball can travel down the tilted plane; the back panel + front glass (`Wall` layer) keep it in the play plane instead. Removed the now-dead serialized fields (`lateralGravity`, `stuckDistanceThreshold`, `stuckTimeBeforeNudge`, `nudgeImpulse`, `maxNudgeImpulse`, `hardDislodgeAfterNudges`, `hardDislodgeOffset`).
+- Supersedes the 2026-04-19 "Ball Z-axis lock" entry below, which added `FreezePositionZ` *because no walls existed yet*. They exist now, so the lock is gone.
+- **Not touched**: `BallSpawner` still applies a one-shot spawn torque + small X/Z jitter for organic variety (standard plinko feel per [PHYSICS_DROP_GUIDE §6](Desgin/PHYSICS_DROP_GUIDE.md)), and `ApplyBoardImperfection` peg jitter stays as the natural anti-stuck mechanism.
+
+Files changed:
+- `Assets/Scripts/Gameplay/Battle/Ball.cs` (stripped to a plain physics ball)
+- `Assets/VisualAssets/Prefabs/Battle/Ball.prefab` (constraints cleared, dead fields removed)
+- `Assets/Docs~/DEV_LOG.md` (this entry)
+
 ### 2026-05-31 - Cursor agent (Claude Opus 4.7) - Live 3D Pom portraits in Battle cards
 
 Battle HUD cards now render the species' 3D Pom prefab live via render-to-texture instead of a flat placeholder colour, satisfying the design rule that portraits are real 3D meshes, not 2D art ([PAWCHINKO_DESIGN_GUIDE §6](Desgin/PAWCHINKO_DESIGN_GUIDE.md#6-battle-scene-composition-critical)). The same `PomData.portraitPrefab` will feed the in-world Creature Stage later, so this work shrinks that future task.
