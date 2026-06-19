@@ -47,16 +47,18 @@ namespace Pawchinko
         }
 
         /// <summary>
-        /// Initialises the ball with its id, the side that spawned it, and the Pom that owns
-        /// it. The source Pom carries through to BallSettledEvent so scoring can apply its
-        /// stats (Power, etc.) when this ball lands. <see cref="Type"/> is set from the
-        /// source Pom's primary type so visuals can read it without poking into the Pom.
+        /// Initialises the ball with its id, the side that spawned it, the resolved ball
+        /// <paramref name="type"/>, and the Pom that owns it. The source Pom carries through to
+        /// BallSettledEvent so scoring can apply its stats (Power, etc.) when this ball lands.
+        /// <paramref name="type"/> is rolled by the spawner (single-type Pom -> its type;
+        /// dual-type Pom -> 50/50) and selects which per-type prefab was instantiated, so it
+        /// always matches this ball's visuals / PhysicsMaterial.
         /// </summary>
-        public void Init(int id, Side side, PomInstance sourcePom)
+        public void Init(int id, Side side, PomType type, PomInstance sourcePom)
         {
             this.id = id;
             this.side = side;
-            this.type = sourcePom != null && sourcePom.data != null ? sourcePom.data.PrimaryType : default;
+            this.type = type;
             SourcePom = sourcePom;
             _hasSettled = false;
 

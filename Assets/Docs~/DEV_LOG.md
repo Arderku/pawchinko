@@ -164,6 +164,34 @@ Completed since last review:
 
 (Reverse chronological. One entry per agent session.)
 
+### 2026-06-18 - Cursor agent (Claude Opus 4.8) - Per-type ball prefabs (type from Pom, own visuals + PhysicsMaterial)
+
+Balls now inherit a real <see cref="PomType"/> from the Pom that drops them and look/feel different per type. A single-type Pom only spawns its type; a dual-type Pom rolls a fresh 50/50 between its primary and secondary for every ball. Player and enemy share the exact same balls - the type, not the side, drives the visual + physics, so the old per-side material override is gone.
+
+- **`PomBallType`** (`Gameplay/Pom/`, new): tiny stateless helper (mirrors `PomBallCount`). `Roll(PomData/PomInstance)` -> primary type for single-type Poms, 50/50 primary/secondary for dual-type.
+- **`BallLibrary`** (`Data/`, new ScriptableObject): maps each `PomType` -> a ball prefab, plus a fallback. One shared asset (`Assets/Data/Ball/BallLibrary.asset`) referenced by both spawners.
+- **`Ball.Init`**: now takes the resolved `PomType` explicitly (was always `sourcePom.PrimaryType`), so the ball's `Type` matches the per-type prefab it was instantiated from.
+- **`BallSpawner`**: dropped the single `ballPrefab` + per-side `ballMaterialOverride`; added a `ballLibrary` ref. Rolls the type at `Enqueue` (fixed when queued) and picks the prefab via `BallLibrary.GetPrefab(type)` at spawn. Logs + skips cleanly if a type has no prefab and no fallback.
+- **Assets** (built by the new `Pawchinko/Build Ball Visuals (per type)` menu tool, `Editor/Pawchinko/Tools/BuildBallVisuals.cs`, idempotent): for each of the 6 `PomType`s - a URP/Lit colour material (`VisualAssets/Materials/Ball/Types/`), a `PhysicsMaterial` with per-type bounciness/friction (`VisualAssets/Physics/Ball_<Type>_PhysMat.asset`), and a **Prefab Variant** of the base `Ball.prefab` (`VisualAssets/Prefabs/Battle/BallTypes/Ball_<Type>.prefab`) with the colour on the ball mesh and the PhysicsMaterial on the SphereCollider. Variants inherit all future base-ball edits (Rigidbody/script/label). Tuning lives in `BuildBallVisuals.Configs` - e.g. **Calm** bounciness `0.10` (dead) vs **Chaos** `0.55` (erratic).
+- **Scene wiring** (via Unity MCP): set `ballLibrary` on `Boards/PlayerBoard/BallSpawner` and `Boards/EneamyBoard/BallSpawner` in `Battle.unity`; pruned the now-dead `ballMaterialOverride` instance override.
+
+Default per-type look/feel (all tweakable in `BuildBallVisuals.Configs`, then re-run the menu item): Chaos = magenta / very bouncy; Calm = blue / dead + sticky; Greedy = gold / grounded; Trick = green / slippery; Lucky = pink; Wild = orange.
+
+Files added/changed:
+- `Assets/Scripts/Gameplay/Pom/PomBallType.cs` (new)
+- `Assets/Scripts/Data/BallLibrary.cs` (new)
+- `Assets/Scripts/Gameplay/Battle/Ball.cs` (Init takes explicit type)
+- `Assets/Scripts/Gameplay/Battle/BallSpawner.cs` (library + type roll, dropped material override)
+- `Assets/Editor/Pawchinko/Tools/BuildBallVisuals.cs` (new build tool)
+- `Assets/VisualAssets/Materials/Ball/Types/Ball_<Type>_Mat.mat` x6 (new)
+- `Assets/VisualAssets/Physics/Ball_<Type>_PhysMat.asset` x6 (new)
+- `Assets/VisualAssets/Prefabs/Battle/BallTypes/Ball_<Type>.prefab` x6 (new)
+- `Assets/Data/Ball/BallLibrary.asset` (new)
+- `Assets/Scenes/Battle.unity` (both spawners wired to the library)
+- `Assets/Docs~/DEV_LOG.md` (this entry)
+
+Manual check (needs Play mode): drop balls and confirm each ball's colour/bounce matches its type. Dual-type 50/50 won't be visible until a Pom is authored with `hasSecondaryType = true` - the `BuildTestPomRoster` species are all single-type today.
+
 ### 2026-06-18 - Cursor agent (Claude Opus 4.8) - Balls are plain physics bodies (tilted board + Wall containment)
 
 The board now has a physical back panel and an invisible front glass on the `Wall` layer, and the board itself is tilted. That makes both the old code-level Z-position lock and the scripted corrective forces wrong: a world-axis `FreezePositionZ` can't follow a tilted plane (balls dropped in a straight vertical line and clipped pegs), and the anti-stuck watchdog's `transform.position` writes shoved balls straight through the new colliders. Reverted the ball to a plain Unity physics body contained by real geometry.

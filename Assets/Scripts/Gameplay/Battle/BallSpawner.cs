@@ -20,15 +20,14 @@ namespace Pawchinko
     public class BallSpawner : MonoBehaviour
     {
         [Header("Prefabs")]
-        [SerializeField] private Ball ballPrefab;
+        [Tooltip("Shared type -> ball-prefab map. Both sides reference the same asset; the ball's rolled PomType picks the prefab (and therefore its visuals + PhysicsMaterial).")]
+        [SerializeField] private BallLibrary ballLibrary;
 
         [Header("References")]
         [Tooltip("Center of the spawn row. The N zones are spread evenly to the left and right of this transform.")]
         [SerializeField] private Transform spawnPoint;
         [Tooltip("Parent transform that all spawned balls are nested under, so the scene stays tidy.")]
         [SerializeField] private Transform ballContainer;
-        [Tooltip("Optional material override applied to every spawned ball (e.g. per-side colour).")]
-        [SerializeField] private Material ballMaterialOverride;
 
         [Header("Spawn Row")]
         [Tooltip("How many invisible spawn zones the row contains. Each zone spawns one ball at a time.")]
@@ -58,6 +57,7 @@ namespace Pawchinko
         {
             public int Id;
             public Side Side;
+            public PomType Type;
             public PomInstance SourcePom;
         }
 
@@ -83,12 +83,15 @@ namespace Pawchinko
         /// </summary>
         public void Enqueue(int id, Side side, PomInstance sourcePom)
         {
-            if (ballPrefab == null)
+            if (ballLibrary == null)
             {
-                Debug.LogError("[BallSpawner] ballPrefab not assigned!");
+                Debug.LogError("[BallSpawner] ballLibrary not assigned!");
                 return;
             }
-            _pending.Enqueue(new PendingSpawn { Id = id, Side = side, SourcePom = sourcePom });
+            // Roll the ball's type now so it is fixed when queued: single-type Pom -> its type,
+            // dual-type Pom -> a fresh 50/50 per ball.
+            PomType type = PomBallType.Roll(sourcePom);
+            _pending.Enqueue(new PendingSpawn { Id = id, Side = side, Type = type, SourcePom = sourcePom });
         }
 
         private void Update()
@@ -151,18 +154,19 @@ namespace Pawchinko
 
         private Ball SpawnAtZone(int zoneIndex, PendingSpawn req)
         {
+            Ball prefab = ballLibrary != null ? ballLibrary.GetPrefab(req.Type) : null;
+            if (prefab == null)
+            {
+                Debug.LogError($"[BallSpawner] No ball prefab for type {req.Type} in ballLibrary (and no fallback).");
+                return null;
+            }
+
             Vector3 pos = GetZoneCenter(zoneIndex);
             pos.x += UnityEngine.Random.Range(-zoneXJitter, zoneXJitter);
             pos.z += UnityEngine.Random.Range(-zoneZJitter, zoneZJitter);
 
-            Ball ball = Instantiate(ballPrefab, pos, Quaternion.identity, ballContainer);
-            ball.Init(req.Id, req.Side, req.SourcePom);
-
-            if (ballMaterialOverride != null)
-            {
-                var renderer = ball.GetComponent<Renderer>();
-                if (renderer != null) renderer.sharedMaterial = ballMaterialOverride;
-            }
+            Ball ball = Instantiate(prefab, pos, Quaternion.identity, ballContainer);
+            ball.Init(req.Id, req.Side, req.Type, req.SourcePom);
 
             if (ball.Body != null)
             {

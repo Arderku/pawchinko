@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7cd575866fb1c4b4cbc76c2254bbcd73, type: 3}
+  m_Name: BallLibrary
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.BallLibrary
+  entries:
+  - type: 0
+    prefab: {fileID: 1419036597315307679, guid: 193412e23b45cf94da7678cff036a1ab, type: 3}
+  - type: 1
+    prefab: {fileID: 3326556973742915645, guid: f34f8f86432f62349bc1290f655758b0, type: 3}
+  - type: 2
+    prefab: {fileID: 4276429890463318701, guid: c606fa0c3a0d2ea4da42f01109eb300d, type: 3}
+  - type: 3
+    prefab: {fileID: 582927659151232180, guid: a4a7726e67972cb489af7ae64546850b, type: 3}
+  - type: 4
+    prefab: {fileID: 278536032765711175, guid: 1980a32733210214bbd61aab45bd097b, type: 3}
+  - type: 5
+    prefab: {fileID: 3135809833523772809, guid: caaad495b4df16541af2fb63a00e1219, type: 3}
+  fallbackPrefab: {fileID: 1419036597315307679, guid: 193412e23b45cf94da7678cff036a1ab, type: 3}
