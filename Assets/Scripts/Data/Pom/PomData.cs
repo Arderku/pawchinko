@@ -46,16 +46,36 @@ namespace Pawchinko
     }
 
     /// <summary>
-    /// One inclusive level band in a Pom's ball-count scale. Levels in [minLevel..maxLevel]
-    /// contribute <see cref="count"/> balls per drop.
+    /// How a Pom's balls-per-drop grows from level 1 to the game's max level. A Pom only *picks*
+    /// a style - it authors no numbers. The actual balls-per-level curve for each style is defined
+    /// once, globally, in <see cref="PomBallCount"/>, so <b>every Pom that shares a style shares the
+    /// exact same balls-per-level table</b> (e.g. all Power Spikes Poms get the same count at level
+    /// 5). The programmer name is the maths; the player-facing name (in the comment) is what the UI
+    /// will eventually show. NOTE: every style only changes its ball count on the 5-level grid
+    /// (Lv 1-5, 6-10, ... 46-50) and every style ends at the same destination - the 25-ball cap at
+    /// level 50. They differ only in the starting count and the SHAPE of the climb (i.e. WHEN you get
+    /// your balls), not in how many you get at the top.
     /// </summary>
-    [Preserve]
-    [Serializable]
-    public class PomBallCountLevelBand
+    public enum BallGrowthStyle
     {
-        public int minLevel;
-        public int maxLevel;
-        public int count;
+        /// <summary>"Steady Paws". Gentle front-loaded climb - starts highest, rises early, then eases
+        /// into the cap. Banks the most balls over a run; the reliable pick.</summary>
+        SteadyPaws = 0,
+
+        /// <summary>Tiered / Step - "Power Spikes". Long flats punctuated by big jumps (uneven steps).</summary>
+        PowerSpikes = 1,
+
+        /// <summary>Linear - "Growing Rush". Even, predictable growth from min to the cap.</summary>
+        GrowingRush = 2,
+
+        /// <summary>Curve - "Late Bloomer". Starts lowest, weak most of the game, then a hard late surge
+        /// to the cap. Fewest balls over a run (patience tax), same level-50 ceiling.</summary>
+        LateBloomer = 3,
+
+        /// <summary>Random Range - "Lucky Chaos". Bounces within a level-scaled band, then settles onto the
+        /// cap at the top band; deterministic per 5-level bracket (not per Pom) so every Lucky Chaos Pom
+        /// shows the same count at the same level.</summary>
+        LuckyChaos = 4
     }
 
     /// <summary>
@@ -83,9 +103,9 @@ namespace Pawchinko
         [SerializeField] private int baseEnergy = 10;
         [SerializeField] private PomBaseStats baseStats = new();
 
-        [Header("Ball Count Scale (level -> balls per drop)")]
-        [SerializeField] private int baseBallCount = 1;
-        [SerializeField] private List<PomBallCountLevelBand> ballCountLevelBands = new();
+        [Header("Ball Growth (level -> balls per drop)")]
+        [Tooltip("Only the GROWTH STYLE is picked here. The actual balls-per-level numbers are defined once per style in PomBallCount and are shared by every Pom with the same style. See the 'Ball Growth Preview' below the default fields.")]
+        [SerializeField] private BallGrowthStyle ballGrowthStyle = BallGrowthStyle.GrowingRush;
 
         [Header("Abilities (learnable pool - type must match primary OR secondary)")]
         [SerializeField] private List<PomAbilityData> learnableAbilities = new();
@@ -107,8 +127,7 @@ namespace Pawchinko
         public int BaseEnergy => baseEnergy;
         public PomBaseStats BaseStats => baseStats;
 
-        public int BaseBallCount => baseBallCount;
-        public IReadOnlyList<PomBallCountLevelBand> BallCountLevelBands => ballCountLevelBands;
+        public BallGrowthStyle BallGrowthStyle => ballGrowthStyle;
 
         public IReadOnlyList<PomAbilityData> LearnableAbilities => learnableAbilities;
 

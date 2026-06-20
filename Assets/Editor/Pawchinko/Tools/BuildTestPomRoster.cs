@@ -31,18 +31,12 @@ namespace Pawchinko.Editor.Tools
             public PomRarity rarity;
             public int baseEnergy;
             public PomBaseStatsData baseStats;
-            public int baseBallCount;
-            public PomBallCountLevelBandData[] ballCountBands;
+            public BallGrowthStyle ballGrowthStyle;
         }
 
         private struct PomBaseStatsData
         {
             public float power, weight, luck, control;
-        }
-
-        private struct PomBallCountLevelBandData
-        {
-            public int minLevel, maxLevel, count;
         }
 
         private static readonly PomSeed[] SeedSpecies =
@@ -56,8 +50,7 @@ namespace Pawchinko.Editor.Tools
                 rarity = PomRarity.Common,
                 baseEnergy = 20,
                 baseStats = new PomBaseStatsData { power = 1.6f, weight = 4.0f, luck = 3f, control = 4f },
-                baseBallCount = 3,
-                ballCountBands = DefaultBands(),
+                ballGrowthStyle = BallGrowthStyle.SteadyPaws,
             },
             new PomSeed
             {
@@ -68,8 +61,7 @@ namespace Pawchinko.Editor.Tools
                 rarity = PomRarity.Common,
                 baseEnergy = 28,
                 baseStats = new PomBaseStatsData { power = 2.4f, weight = 2.5f, luck = 4f, control = 2f },
-                baseBallCount = 3,
-                ballCountBands = DefaultBands(),
+                ballGrowthStyle = BallGrowthStyle.GrowingRush,
             },
             new PomSeed
             {
@@ -80,8 +72,7 @@ namespace Pawchinko.Editor.Tools
                 rarity = PomRarity.Uncommon,
                 baseEnergy = 24,
                 baseStats = new PomBaseStatsData { power = 1.9f, weight = 2.0f, luck = 6f, control = 3f },
-                baseBallCount = 3,
-                ballCountBands = DefaultBands(),
+                ballGrowthStyle = BallGrowthStyle.PowerSpikes,
             },
             new PomSeed
             {
@@ -92,18 +83,13 @@ namespace Pawchinko.Editor.Tools
                 rarity = PomRarity.Uncommon,
                 baseEnergy = 22,
                 baseStats = new PomBaseStatsData { power = 1.8f, weight = 2.2f, luck = 8f, control = 2.5f },
-                baseBallCount = 3,
-                ballCountBands = DefaultBands(),
+                ballGrowthStyle = BallGrowthStyle.LuckyChaos,
             },
         };
 
-        private static PomBallCountLevelBandData[] DefaultBands() => new[]
-        {
-            new PomBallCountLevelBandData { minLevel = 1,  maxLevel = 9,  count = 1 },
-            new PomBallCountLevelBandData { minLevel = 10, maxLevel = 24, count = 2 },
-            new PomBallCountLevelBandData { minLevel = 25, maxLevel = 39, count = 3 },
-            new PomBallCountLevelBandData { minLevel = 40, maxLevel = 50, count = 4 },
-        };
+        // Growth style assigned to Glitch Pug (the pre-existing base species) so all five styles
+        // are represented across the test roster.
+        private const BallGrowthStyle GlitchPugGrowthStyle = BallGrowthStyle.LateBloomer;
 
         [MenuItem("Pawchinko/Build Test Pom Roster (5v5)")]
         public static void Build()
@@ -137,6 +123,13 @@ namespace Pawchinko.Editor.Tools
                     "OK");
                 return;
             }
+
+            // Give the pre-existing base species a growth style too, so the roster covers all five.
+            var pugSo = new SerializedObject(glitchPug);
+            WriteBallGrowth(pugSo, GlitchPugGrowthStyle);
+            pugSo.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(glitchPug);
+            AssetDatabase.SaveAssets();
 
             var fullRoster = new List<PomData> { glitchPug };
             fullRoster.AddRange(seededPoms);
@@ -176,18 +169,7 @@ namespace Pawchinko.Editor.Tools
             statsProp.FindPropertyRelative("luck").floatValue = seed.baseStats.luck;
             statsProp.FindPropertyRelative("control").floatValue = seed.baseStats.control;
 
-            so.FindProperty("baseBallCount").intValue = seed.baseBallCount;
-
-            var bandsProp = so.FindProperty("ballCountLevelBands");
-            bandsProp.arraySize = seed.ballCountBands.Length;
-            for (int i = 0; i < seed.ballCountBands.Length; i++)
-            {
-                var band = seed.ballCountBands[i];
-                var element = bandsProp.GetArrayElementAtIndex(i);
-                element.FindPropertyRelative("minLevel").intValue = band.minLevel;
-                element.FindPropertyRelative("maxLevel").intValue = band.maxLevel;
-                element.FindPropertyRelative("count").intValue = band.count;
-            }
+            WriteBallGrowth(so, seed.ballGrowthStyle);
 
             so.FindProperty("learnableAbilities").arraySize = 0;
             so.FindProperty("portraitPrefab").objectReferenceValue = portraitPrefab;
@@ -197,6 +179,11 @@ namespace Pawchinko.Editor.Tools
 
             Debug.Log($"[BuildTestPomRoster] {(isNew ? "Created" : "Updated")} {seed.displayName} at {path}");
             return asset;
+        }
+
+        private static void WriteBallGrowth(SerializedObject so, BallGrowthStyle style)
+        {
+            so.FindProperty("ballGrowthStyle").enumValueIndex = (int)style;
         }
 
         private static void ApplyToBattleScene(List<PomData> roster)

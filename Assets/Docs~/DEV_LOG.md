@@ -164,6 +164,95 @@ Completed since last review:
 
 (Reverse chronological. One entry per agent session.)
 
+### 2026-06-20 - Cursor agent (Claude Opus 4.8) - All growth styles converge to the 25 cap at level 50
+
+Per user ("at level 50 each of them just end up at 25 balls"): every style now shares the same destination - the `MaxBallsCap` (25) at level 50 - and differs only in the journey (Min + climb shape). Set every `GetCurve` Max to `MaxBallsCap`. For Lucky Chaos, tapered the bounce band by `(1 - bt)` so it converges exactly onto the cap at the top bracket while still bouncing earlier.
+
+- Verified via MCP - all five hit 25 at L50. Per-band (Lv 1-5 .. 46-50): Steady 4,10,13,15,17,19,20,22,24,25; Growing Rush 2,5,7,10,12,15,17,20,22,25; Power Spikes 2,4,5,12,14,15,22,23,24,25; Late Bloomer 1,1,2,4,6,8,12,16,20,25; Lucky Chaos 2,3,2,10,12,17,17,21,23,25. Run-totals L1-50 now express the tradeoff: Steady 845 (front-loaded, banks most), Power Spikes 730, Growing Rush 675, Lucky Chaos 660, Late Bloomer 475 (patience tax, same ceiling).
+- Files: `PomBallCount.cs` (Max=cap for all, Lucky Chaos band taper, balance comment), `PomData.cs` (enum docs), `PAWCHINKO_DESIGN_GUIDE.md` (§8).
+
+### 2026-06-20 - Cursor agent (Claude Opus 4.8) - All growth styles now step on the 5-level grid
+
+Per user ("we do different each 5 levels"): the whole roster should progress in readable 5-level chunks, not just Power Spikes. `Evaluate` now quantizes **every** style to the 5-level grid - the count is flat within each band (Lv 1-5, 6-10, ... 46-50) and only changes at a band boundary. The styles now differ purely in the **shape** of the 10-step climb, not in how often they change.
+
+- **`PomBallCount.Evaluate`** computes a single `bracket = (level-1)/StepLevelInterval` (0..9) and `bt = bracket/topBracket`, then feeds `bt` (not per-level `t`) into each style's shape: Steady `Pow(bt,0.6)`, Growing Rush linear `bt`, Late Bloomer `Pow(bt,2.0)`, Power Spikes via new `PowerSpikeShape[]`, Lucky Chaos band keyed to the **bracket**. Removed `EvaluateSteps` (folded into the unified bracket math).
+- **Power Spikes is genuinely spiky now** (so it stays distinct from linear once both step every 5 levels): new `PowerSpikeShape` cumulative array `{0,.10,.15,.45,.50,.55,.85,.90,.95,1}` = long flats with big jumps at brackets 2->3 and 5->6. Bumped its curve to 2->18. `Hash01` param renamed `level`->`key` (now a bracket index).
+- **Verified via MCP** that all five styles change only at L6/11/16/21/26/31/36/41/46. Per-band counts (Lv 1-5 .. 46-50): Steady 4,4,6,8,9,10,11,12,12,13; Growing Rush 2,4,5,7,9,10,12,14,15,17; Power Spikes 2,4,4,9,10,11,16,16,17,18; Late Bloomer 1,1,2,3,5,7,10,14,18,22; Lucky Chaos 2,2,2,7,9,13,11,17,17,17. Sums L1-50: Steady 475, Growing Rush 475, Power Spikes 535, Lucky Chaos 485, Late Bloomer 415.
+- **`PomDataEditor`** preview now lists one row per 5-level band ("Lv 1-5" ... "Lv 46-50") and states every style changes only every 5 levels. Updated enum docs (`PomData`) and design guide §8 accordingly.
+
+Files: `PomBallCount.cs`, `PomData.cs` (enum docs), `PomDataEditor.cs` (banded preview), `PAWCHINKO_DESIGN_GUIDE.md` (§8).
+
+### 2026-06-20 - Cursor agent (Claude Opus 4.8) - Ball Growth balance pass + Steady Paws now progresses
+
+Per user: Steady Paws felt wrong as a flat line (always 6, no progress), and the styles needed balancing. All edits are in `PomBallCount` (still the single shared source of truth).
+
+- **Steady Paws is no longer flat.** It's now a gentle, front-loaded climb (4 -> 13) using `SteadyPawsExponent = 0.6` (concave: rises fast early, then levels off). Reads as "reliable, strong early". Updated the enum/doc/guide wording (was "same count at every level").
+- **Rebalanced all five so L50 endpoints + run-totals sit in a tighter band**, differing in journey not destination. New curves in `GetCurve`: Steady 4->13, Growing Rush 2->17 (linear), Power Spikes 2->17 (steps every 5 levels), Late Bloomer 1->22 (back-loaded, exponent 2.0, biggest finish), Lucky Chaos 2->17 (bounce). Sum of balls L1..50: Steady 480, Power Spikes 475, Growing Rush 475, Lucky Chaos 492, Late Bloomer 402 (intentionally lowest total but highest ceiling = patience payoff). Previously the spread was 265..512.
+- **Fixed the Lucky Chaos hash bias.** The old FNV+single-shift finalizer skewed low, so Lucky Chaos sat *under* its own line at high levels (L50=12 vs max 16). Replaced `Hash01` with a multi-round integer finalizer; the bounce is now symmetric around the linear line (e.g. L5=6 above, mid around the line, occasional dips), still fully deterministic per level.
+- **`StyleCurve` and stepping unchanged** otherwise (Power Spikes still uses `StepLevelInterval = 5`).
+
+Files changed:
+- `Assets/Scripts/Gameplay/Pom/PomBallCount.cs` (curves, Steady concave, stronger hash, balance comment)
+- `Assets/Scripts/Data/Pom/PomData.cs` (SteadyPaws enum doc)
+- `Assets/Docs~/Desgin/PAWCHINKO_DESIGN_GUIDE.md` (§8 Steady Paws wording)
+- `Assets/Docs~/DEV_LOG.md` (this entry)
+
+### 2026-06-20 - Cursor agent (Claude Opus 4.8) - Power Spikes steps every 5 levels + clearer edit point
+
+Small tuning follow-up. (1) Where to edit per-style ball numbers is now an explicit, commented block: `PomBallCount.GetCurve(style)` (Min = balls at L1, Max = balls at L50). (2) The stepped **Power Spikes** style now jumps once **every 5 levels** instead of ~12: added `PomBallCount.StepLevelInterval = 5`; `EvaluateSteps` brackets by `(level-1)/interval`, so brackets are 1-5, 6-10, ... 46-50. Dropped the now-unused per-style `steps` from `StyleCurve` (Min/Max only). Verified: Power Spikes = 1,1,1,1,1 / 3 / 4 / 6 / 8 / 9 / 11 / 13 / 14 / 16 across the ten 5-level brackets. The continuous styles (Linear/Curve/Lucky) are unchanged and still grow smoothly by design.
+
+- `Assets/Scripts/Gameplay/Pom/PomBallCount.cs` (StepLevelInterval, 5-level bracket math, slimmer StyleCurve, labeled edit block)
+- `Assets/Docs~/Desgin/PAWCHINKO_DESIGN_GUIDE.md` (§8 Power Spikes note)
+- `Assets/Docs~/DEV_LOG.md` (this entry)
+
+### 2026-06-20 - Cursor agent (Claude Opus 4.8) - Ball Growth curves are shared per style (not per Pom) + inspector preview
+
+Follow-up to the same-day Ball Growth entry below. Per user: the balls-per-level data should belong to the **style**, not the Pom - every Pom with the same style must give the **identical** count at a given level (two Power Spikes Poms both give the same balls at level 5). A Pom now only *picks a style*; it authors no numbers. Also added an inspector preview so the level->balls table is visible.
+
+- **`PomData`**: removed the per-Pom `PomBallGrowth` class (min/max/steps). Replaced with a single `BallGrowthStyle ballGrowthStyle` field + `BallGrowthStyle` property. The enum is unchanged.
+- **`PomBallCount`**: the per-style curve (min/max/steps) now lives here as the **single shared source of truth** via `GetCurve(BallGrowthStyle)`; constants `MaxBallsCap = 25` and `MaxPomLevel = 50` moved here. `Evaluate` is now `(style, level)` and reads the global level range, so the table is keyed only on style+level. **Lucky Chaos is now seeded by level only (not species id)** so every Lucky Chaos Pom shares one table. Public API kept (`GetBallCountForLevel(PomData,int)`, `GetCurrentBallCount`) plus new `GetBallCountForLevel(BallGrowthStyle,int)` for the preview - `BattleManager` / `BattlePomCardView` untouched.
+- **`PomDataEditor`** (`Editor/Pawchinko/Inspectors/`, new): custom inspector that draws a read-only "Ball Growth Preview" - a level->balls table (Lv 1,5,...,50) with bars - under the default fields, computed from `PomBallCount` so it matches battle exactly. States that the curve is shared by all Poms of that style.
+- **`BuildTestPomRoster`**: seeds now carry only a `BallGrowthStyle`; dropped the per-seed min/max/steps and the `BallGrowthData` struct. Re-ran it to migrate the 5 creature assets to the single `ballGrowthStyle` field.
+- **Docs**: `PAWCHINKO_DESIGN_GUIDE.md` §8 updated to state the Pom picks only a style and the curve is shared + defined in `PomBallCount.GetCurve`.
+
+Current shared curves (`PomBallCount.GetCurve`, tweak here to retune game-wide; all <= 25 at L50): Steady Paws 6 flat; Power Spikes 1->16 (4 tiers); Growing Rush 2->16 linear; Late Bloomer 1->20 (t^2.5); Lucky Chaos 2->18 bounded. Verified via MCP: every authored Pom's count equals its style's count (pom==style true), highest L50 = 20.
+
+Files changed:
+- `Assets/Scripts/Data/Pom/PomData.cs` (style-only field)
+- `Assets/Scripts/Gameplay/Pom/PomBallCount.cs` (shared per-style curves)
+- `Assets/Editor/Pawchinko/Inspectors/PomDataEditor.cs` (new preview)
+- `Assets/Editor/Pawchinko/Tools/BuildTestPomRoster.cs` (style-only seeds)
+- `Assets/Data/Pom/Creatures/Pom_*.asset` (migrated to ballGrowthStyle)
+- `Assets/Docs~/Desgin/PAWCHINKO_DESIGN_GUIDE.md` (§8)
+- `Assets/Docs~/DEV_LOG.md` (this entry)
+
+### 2026-06-20 - Cursor agent (Claude Opus 4.8) - Ball Growth styles (replaces level-band ball counts)
+
+Replaced the old "inclusive level band -> ball count" authoring with a single **Ball Growth** profile per species: a `BallGrowthStyle` plus a min (level 1) and max (max level) count. The style shapes the curve between them. Player-facing names are locked in for a future UI (none yet). Game-wide rule enforced in code: **no Pom drops more than 25 balls at any level**.
+
+Styles (programmer name / player-facing name):
+- **Fixed / "Steady Paws"** - constant (uses min).
+- **Tiered-Step / "Power Spikes"** - flat, then jumps in N tiers (`steps`).
+- **Linear / "Growing Rush"** - even min->max.
+- **Curve / "Late Bloomer"** - slow early, ramps near max (t^2.5).
+- **Random Range / "Lucky Chaos"** - bounces within a level-scaled band, but **deterministic per (species, level)** via a stable FNV-1a hash of the species id - never re-rolled at runtime, so a given Pom always shows the same count at the same level. (User's "not random but data is same".)
+
+- **`PomData`** (`Data/Pom/`): removed `baseBallCount` + `ballCountLevelBands` (+ the `PomBallCountLevelBand` class). Added `BallGrowthStyle` enum + `[Serializable] PomBallGrowth` (style, minBalls, maxBalls, steps; const `MaxBallsCap = 25`) and a `ballGrowth` field / `BallGrowth` property. Old serialized fields drop off existing assets on next save.
+- **`PomBallCount`** (`Gameplay/Pom/`): rewritten from a band lookup into a style evaluator. Same public API (`GetBallCountForLevel`, `GetCurrentBallCount`) so `BattleManager` + `BattlePomCardView` call sites are untouched; added `Evaluate(growth, idSeed, level, maxLevel)`. Every result clamped to [0, 25].
+- **`BuildTestPomRoster`** (editor tool): each test species now authors a distinct style so all five are represented - Zen Sloth=Steady Paws(4), Coin Hoarder=Growing Rush(2->14), Mirage Fox=Power Spikes(1->12), Clover Cat=Lucky Chaos(2->16), Glitch Pug=Late Bloomer(1->20). Dropped the `DefaultBands()` helper; added `WriteBallGrowth`.
+- **Assets** (re-authored + verified via Unity MCP, no scene changes): the 5 creature assets in `Assets/Data/Pom/Creatures/`. Verified counts at L1/10/25/40/50; highest at L50 across the roster = 20 (<= 25 cap). Each style behaves as intended (constant / linear / flat-then-spike / late ramp / bounded bounce).
+- **Docs**: `PAWCHINKO_DESIGN_GUIDE.md` §8 (Ball Profile -> "Ball growth" with the five styles + 25 cap) and §11 (replaced the "TBD ball-count scaling formula" line).
+
+Files added/changed:
+- `Assets/Scripts/Data/Pom/PomData.cs` (growth enum + config, dropped band fields)
+- `Assets/Scripts/Gameplay/Pom/PomBallCount.cs` (style evaluator)
+- `Assets/Editor/Pawchinko/Tools/BuildTestPomRoster.cs` (per-style seed data)
+- `Assets/Data/Pom/Creatures/Pom_{ZenSloth,CoinHoarder,MirageFox,CloverCat,GlitchPug}.asset` (re-authored growth)
+- `Assets/Docs~/Desgin/PAWCHINKO_DESIGN_GUIDE.md` (§8 + §11)
+- `Assets/Docs~/DEV_LOG.md` (this entry)
+
+Note: only `minBalls`, `maxBalls`, `steps` (+ style) are authored data; the curve exponent (2.5) and Lucky Chaos band width (35%) are tuning constants in `PomBallCount`. Re-run `Pawchinko/Build Test Pom Roster (5v5)` to reproduce the test data from scratch.
+
 ### 2026-06-18 - Cursor agent (Claude Opus 4.8) - Per-type ball prefabs (type from Pom, own visuals + PhysicsMaterial)
 
 Balls now inherit a real <see cref="PomType"/> from the Pom that drops them and look/feel different per type. A single-type Pom only spawns its type; a dual-type Pom rolls a fresh 50/50 between its primary and secondary for every ball. Player and enemy share the exact same balls - the type, not the side, drives the visual + physics, so the old per-side material override is gone.

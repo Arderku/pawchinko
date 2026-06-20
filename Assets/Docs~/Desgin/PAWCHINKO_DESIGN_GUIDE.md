@@ -238,7 +238,14 @@ Each Pom has the following fields:
 - **Ball Profile** - the data that describes this creature's balls (`PomBallProfile`):
   - Ball **type** (matches creature type).
   - Ball **spawn pattern** (e.g. scatter, focused).
-  - Ball **count scale** - inclusive level bands; each band has its own ball count. The runtime Pom resolves its current ball count from this scale at its current level.
+  - Ball **growth** - the Pom picks **only a `BallGrowthStyle`**; it authors no numbers. The balls-per-level curve for each style is defined **once, globally**, in `PomBallCount`, so **every Pom that shares a style shares the exact same balls-per-level table** (e.g. all Power Spikes Poms give the same count at level 5 - the data is not unique per Pom). **Every style changes its ball count only on the 5-level grid** (`PomBallCount.StepLevelInterval`): the count is flat within each band (Lv 1-5, 6-10, ... 46-50) and only changes at a band boundary. **Every style also ends at the same destination - the 25-ball cap at level 50** - so no style is strictly best at max level; they differ only in the **starting count and the shape of the climb** (i.e. *when* you get your balls, not how many at the top). The runtime Pom resolves its current ball count from its style at its current level. **Hard rule: no Pom drops more than 25 balls at any level** (enforced in `PomBallCount`), over the global level range 1..50. The five styles (programmer name / player-facing name):
+    - **"Steady Paws"** - gentle, front-loaded climb: starts highest, rises early, then eases into the cap. Banks the most balls over a run; the reliable pick.
+    - **Tiered (Step) / "Power Spikes"** - long flats punctuated by **big jumps** (uneven steps, see `PomBallCount.PowerSpikeShape`): lumpy and strong right after a spike.
+    - **Linear / "Growing Rush"** - even, predictable growth from min to the cap (the dependable baseline).
+    - **Curve / "Late Bloomer"** - starts lowest, weak for most of the game, then a hard late surge to the cap. Fewest total balls over a run (patience tax) but the same level-50 ceiling.
+    - **Random Range / "Lucky Chaos"** - bounces within a level-scaled band, then settles onto the cap at the top band. Deterministic per **5-level bracket** (not per Pom): the value is *not* re-rolled at runtime, so every Lucky Chaos Pom shows the same count at a given level - it just bounces non-smoothly as it levels.
+
+    The per-style numbers are tuning constants in `PomBallCount.GetCurve(style)` (the single source of truth). The `PomData` inspector renders a live "Ball Growth Preview" of the level->balls table for the selected style. (No player-facing in-game UI for this yet; the player-facing names above are locked in for it.)
   - Ball **behavior tags** (examples only: bouncy, heavy, splitter, sticky). The exact tag list is a design data set, not fixed here.
 - **Abilities** - a **learnable pool** authored on the species (`learnableAbilities` on `PomDefinition`). At runtime each Pom has **at most 2 learned abilities** at a time; learning a third replaces one. **Abilities are type-locked**: a Pom can only learn abilities whose type matches its own (see Section 13).
 - **Visual Identity** - main colors + effect tags, authored as designer hints; the actual art binding lives on prefabs.
@@ -342,7 +349,7 @@ This loop is **strategic pressure**, not a damage multiplier:
 
 - Each creature spawns balls of **its own type**.
 - Total balls dropped per round = **sum of all queued creatures' ball contributions**.
-- Ball count **scales with level** and varies per creature. *(TBD: exact ball-count scaling formula.)*
+- Ball count **scales with level** and varies per creature, via the creature's **Ball Growth** profile (`BallGrowthStyle` + min/max - see Section 8). Capped at **25 balls** at any level.
 - Each ball **carries the stats and behavior** of its source creature throughout its physics lifetime.
 - Balls **visually differ by type** so the player can read the board at a glance. (Generic round-ball placeholder art is not canonical; final ball visuals must be type-distinct.)
 
