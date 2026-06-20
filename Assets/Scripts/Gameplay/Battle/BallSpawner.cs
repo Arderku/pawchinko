@@ -59,6 +59,9 @@ namespace Pawchinko
             public Side Side;
             public PomType Type;
             public PomInstance SourcePom;
+            // Resolved at enqueue from this side's ability modifiers so they stay fixed per ball:
+            public float Power;        // base Pom power x ability ball-power effects
+            public int[] AllowedZones; // null = any zone; otherwise restrict to these spawn zones
         }
 
         private readonly Queue<PendingSpawn> _pending = new();
@@ -91,7 +94,46 @@ namespace Pawchinko
             // Roll the ball's type now so it is fixed when queued: single-type Pom -> its type,
             // dual-type Pom -> a fresh 50/50 per ball.
             PomType type = PomBallType.Roll(sourcePom);
-            _pending.Enqueue(new PendingSpawn { Id = id, Side = side, Type = type, SourcePom = sourcePom });
+
+            // Fold in this side's ability modifiers (resolved during the plan phase). Both the
+            // per-ball power and the spawn-zone bias are rolled now so they stay fixed for this
+            // ball regardless of how long it waits in the queue for a free zone.
+            RoundModifiers mods = ResolveModifiers(side);
+            float basePower = sourcePom != null && sourcePom.data != null && sourcePom.data.BaseStats != null
+                ? sourcePom.data.BaseStats.power
+                : 1f;
+            float power = mods.ApplyBallPower(basePower, type);
+            int[] allowedZones = SanitizeZones(mods.RollAllowedZones());
+
+            _pending.Enqueue(new PendingSpawn
+            {
+                Id = id,
+                Side = side,
+                Type = type,
+                SourcePom = sourcePom,
+                Power = power,
+                AllowedZones = allowedZones
+            });
+        }
+
+        private static RoundModifiers ResolveModifiers(Side side)
+        {
+            var am = GameManager.Instance != null ? GameManager.Instance.AbilityManager : null;
+            return am != null ? am.GetModifiers(side) : RoundModifiers.Empty;
+        }
+
+        /// <summary>Clamps requested zone indices into [0, zoneCount) and drops invalid/empty input.</summary>
+        private int[] SanitizeZones(int[] zones)
+        {
+            if (zones == null || zones.Length == 0) return null;
+            int max = Mathf.Max(1, zoneCount);
+            var valid = new List<int>(zones.Length);
+            for (int i = 0; i < zones.Length; i++)
+            {
+                int z = zones[i];
+                if (z >= 0 && z < max && !valid.Contains(z)) valid.Add(z);
+            }
+            return valid.Count > 0 ? valid.ToArray() : null;
         }
 
         private void Update()
@@ -101,16 +143,19 @@ namespace Pawchinko
             EnsureZoneBuffer();
 
             int zones = _zoneLastBall.Length;
-            // One pass round-robin through zones; spawn into every free one we encounter.
-            // We do not loop "forever" within a single frame even if many zones are free
-            // because minIntervalBetweenSpawns gates successive spawns to keep them from
-            // landing on the same physics tick.
-            for (int step = 0; step < zones && _pending.Count > 0; step++)
+            // FIFO: only the front ball is considered each tick. It spawns into the first clear
+            // zone it is ALLOWED to use (ability spawn-slot bias restricts the set; null = any).
+            // Restricting to the front ball preserves order and keeps a forced/biased ball waiting
+            // for its target zone instead of letting a later ball jump ahead. One spawn per frame
+            // (gated by minIntervalBetweenSpawns) keeps balls off the same physics tick.
+            var req = _pending.Peek();
+            for (int step = 0; step < zones; step++)
             {
                 int zone = (_nextZoneIndex + step) % zones;
+                if (!IsZoneAllowed(zone, req.AllowedZones)) continue;
                 if (!IsZoneClear(zone)) continue;
 
-                var req = _pending.Dequeue();
+                _pending.Dequeue();
                 var ball = SpawnAtZone(zone, req);
                 if (ball != null)
                 {
@@ -118,10 +163,20 @@ namespace Pawchinko
                     BallSpawned?.Invoke(ball);
                     _nextSpawnEarliest = Time.time + minIntervalBetweenSpawns;
                     _nextZoneIndex = (zone + 1) % zones;
-                    // Only spawn one per frame to respect the interval; rest happens next frame.
-                    return;
                 }
+                // Either way we handled the front ball this frame; the rest waits for next frame.
+                return;
             }
+        }
+
+        private static bool IsZoneAllowed(int zone, int[] allowed)
+        {
+            if (allowed == null) return true;
+            for (int i = 0; i < allowed.Length; i++)
+            {
+                if (allowed[i] == zone) return true;
+            }
+            return false;
         }
 
         private void EnsureZoneBuffer()
@@ -166,7 +221,7 @@ namespace Pawchinko
             pos.z += UnityEngine.Random.Range(-zoneZJitter, zoneZJitter);
 
             Ball ball = Instantiate(prefab, pos, Quaternion.identity, ballContainer);
-            ball.Init(req.Id, req.Side, req.Type, req.SourcePom);
+            ball.Init(req.Id, req.Side, req.Type, req.SourcePom, req.Power);
 
             if (ball.Body != null)
             {

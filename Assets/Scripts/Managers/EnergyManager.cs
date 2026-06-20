@@ -91,7 +91,16 @@ namespace Pawchinko
         {
             if (!battleActive) return;
 
-            int diff = evt.PlayerScore - evt.EnemyScore;
+            // Abilities can scale the energy a side collects from this round's score (e.g. +20%
+            // to your own, or -% to the opponent's) before the tug-of-war diff is applied.
+            var am = GameManager.Instance != null ? GameManager.Instance.AbilityManager : null;
+            float playerPct = am != null ? am.GetModifiers(Side.Player).EnergyPercent : 0f;
+            float enemyPct = am != null ? am.GetModifiers(Side.Enemy).EnergyPercent : 0f;
+
+            int playerScore = Mathf.Max(0, Mathf.RoundToInt(evt.PlayerScore * (1f + playerPct)));
+            int enemyScore = Mathf.Max(0, Mathf.RoundToInt(evt.EnemyScore * (1f + enemyPct)));
+
+            int diff = playerScore - enemyScore;
             if (diff > 0)
             {
                 enemyEnergy = Mathf.Max(0, enemyEnergy - diff);
@@ -101,7 +110,7 @@ namespace Pawchinko
                 playerEnergy = Mathf.Max(0, playerEnergy + diff); // diff is negative
             }
 
-            Debug.Log($"[EnergyManager] Round {evt.RoundNumber} scored {evt.PlayerScore}|{evt.EnemyScore} diff={diff} -> P={playerEnergy}/{playerMax} E={enemyEnergy}/{enemyMax}");
+            Debug.Log($"[EnergyManager] Round {evt.RoundNumber} scored {evt.PlayerScore}|{evt.EnemyScore} (energy {playerScore}|{enemyScore}) diff={diff} -> P={playerEnergy}/{playerMax} E={enemyEnergy}/{enemyMax}");
             eventSystem.Publish(new EnergyChangedEvent(playerEnergy, enemyEnergy));
 
             if (playerEnergy <= 0 || enemyEnergy <= 0)

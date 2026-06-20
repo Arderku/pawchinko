@@ -56,7 +56,12 @@ namespace Pawchinko
         private void OnBallSettled(BallSettledEvent evt)
         {
             int slotValue = LookupSlotValue(evt.SlotIndex);
-            int scored = ScaleByPomPower(evt.SourcePom, slotValue);
+
+            // Ability bucket rules (boost/lower a bucket, type-only scoring, per-type bonus) are
+            // applied to the slot value first, then the ball's already-resolved Power scales it.
+            var mods = ResolveModifiers(evt.Side);
+            int bucketValue = mods.ApplyBucket(slotValue, evt.SlotIndex, evt.BallType);
+            int scored = ScaleByPower(evt.Power, bucketValue);
 
             if (evt.Side == Side.Player)
             {
@@ -77,7 +82,7 @@ namespace Pawchinko
             }
 
             string pomName = evt.SourcePom != null && evt.SourcePom.data != null ? evt.SourcePom.data.DisplayName : "(null)";
-            Debug.Log($"[ScoringManager] {evt.Side} {pomName} slot={evt.SlotIndex} slotValue={slotValue} scored={scored} (round={currentRound} {playerLanded}/{playerExpected} {enemyLanded}/{enemyExpected})");
+            Debug.Log($"[ScoringManager] {evt.Side} {pomName} {evt.BallType} slot={evt.SlotIndex} slotValue={slotValue} bucket={bucketValue} power={evt.Power:0.##} scored={scored} (round={currentRound} {playerLanded}/{playerExpected} {enemyLanded}/{enemyExpected})");
 
             if (playerExpected > 0 && enemyExpected > 0
                 && playerLanded >= playerExpected
@@ -94,12 +99,16 @@ namespace Pawchinko
             return scoring.slotValues[slotIndex];
         }
 
-        private static int ScaleByPomPower(PomInstance pom, int slotValue)
+        private static RoundModifiers ResolveModifiers(Side side)
         {
-            if (pom == null || pom.data == null || pom.data.BaseStats == null) return slotValue;
-            float power = pom.data.BaseStats.power;
-            if (power <= 0f) return slotValue;
-            return Mathf.RoundToInt(slotValue * power);
+            var am = GameManager.Instance != null ? GameManager.Instance.AbilityManager : null;
+            return am != null ? am.GetModifiers(side) : RoundModifiers.Empty;
+        }
+
+        private static int ScaleByPower(float power, int value)
+        {
+            if (power <= 0f) return value;
+            return Mathf.RoundToInt(value * power);
         }
 
         private void ResetRoundAccumulators()

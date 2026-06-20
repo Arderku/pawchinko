@@ -22,11 +22,12 @@ MonoBehaviour:
   secondaryType: 0
   maxLevel: 50
   baseEnergy: 22
+  baseAP: 3
   baseStats:
     power: 1.8
     weight: 2.2
     luck: 8
     control: 2.5
-  ballGrowthStyle: 4
+  ballGrowthStyle: 1
   learnableAbilities: []
   portraitPrefab: {fileID: 2038072894225404734, guid: 7109f86fd5bf88a408bde84d73fda8e4, type: 3}

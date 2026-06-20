@@ -11,16 +11,21 @@ namespace Pawchinko
     public static class PomAbilityLearning
     {
         /// <summary>
-        /// True when the ability is in the species' learnable pool AND its type matches one of
-        /// the species' types (primary or, when set, secondary).
+        /// True when the ability is in the species' learnable pool AND the species satisfies the
+        /// ability's required type (an ability whose <see cref="PomAbilityData.RequiredType"/> is
+        /// "any" can be learned by every Pom; otherwise the species' primary or secondary type
+        /// must match).
         /// </summary>
         public static bool CanLearn(PomData data, PomAbilityData ability)
         {
             if (data == null || ability == null) return false;
             var pool = data.LearnableAbilities;
             if (pool == null || !pool.Contains(ability)) return false;
-            if (ability.Type == data.PrimaryType) return true;
-            if (data.HasSecondaryType && ability.Type == data.SecondaryType) return true;
+
+            var required = ability.RequiredType;
+            if (required.any) return true;
+            if (required.Matches(data.PrimaryType)) return true;
+            if (data.HasSecondaryType && required.Matches(data.SecondaryType)) return true;
             return false;
         }
 
@@ -44,7 +49,7 @@ namespace Pawchinko
             if (!CanLearn(instance, ability))
             {
                 string owner = instance.data != null ? instance.data.DisplayName : "<null>";
-                throw new ArgumentException($"Pom '{owner}' cannot learn ability '{ability.DisplayName}' (type {ability.Type}).", nameof(ability));
+                throw new ArgumentException($"Pom '{owner}' cannot learn ability '{ability.DisplayName}' (required type {(ability.RequiredType.any ? "Any" : ability.RequiredType.type.ToString())}).", nameof(ability));
             }
 
             if (instance.learnedAbilities == null || instance.learnedAbilities.Length != PomInstance.LearnedAbilitySlotCount)

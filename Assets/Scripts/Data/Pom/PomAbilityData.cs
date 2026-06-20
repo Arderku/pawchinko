@@ -1,34 +1,26 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Pawchinko
 {
-    /// <summary>
-    /// Broad category an ability falls into. Drives icon / UI grouping; concrete effect math
-    /// lives in the resolver that consumes it (TBD).
-    /// </summary>
-    public enum PomAbilityCategory
-    {
-        SelfBuff = 0,
-        EnemyDebuff = 1,
-        PegBuff = 2,
-        PegDebuff = 3,
-        BucketModifier = 4,
-        BallModifier = 5,
-        BoardScramble = 6
-    }
-
-    /// <summary>Which board(s) the ability applies to when resolved.</summary>
+    /// <summary>Which board(s) an ability's effects apply to when it resolves.</summary>
     public enum PomAbilityBoardTarget
     {
+        /// <summary>The caster's own board (the player's side).</summary>
         Self = 0,
+        /// <summary>The opposing board.</summary>
         Enemy = 1,
+        /// <summary>Both boards.</summary>
         Both = 2
     }
 
     /// <summary>
-    /// One ability asset (Section 13). The <see cref="type"/> field gates learnability: a Pom
-    /// can only learn an ability whose type matches one of its own types (primary or
-    /// secondary). Every ability lasts exactly one round - duration is not authored.
+    /// One ability asset (Section 13). An ability declares who may use it (<see cref="requiredType"/>,
+    /// where "any" means no restriction), what it costs (<see cref="apCost"/>), which board(s) it
+    /// hits (<see cref="boardTarget"/>), and a list of <see cref="AbilityEffect"/>s that resolve at
+    /// the start of a round before balls drop and last exactly that one round. The numbers are
+    /// authored per asset (unlike the shared ball-growth table) so each ability can be tuned on its
+    /// own. The effect math lives in <see cref="AbilityManager"/> + <see cref="RoundModifiers"/>.
     /// </summary>
     [CreateAssetMenu(menuName = "Pawchinko/Pom/Ability Data", fileName = "PomAbility_New")]
     public class PomAbilityData : ScriptableObject
@@ -37,21 +29,27 @@ namespace Pawchinko
         [SerializeField] private string id;
         [SerializeField] private string displayName;
         [SerializeField, TextArea] private string description;
-        [SerializeField] private PomType type;
-        [SerializeField] private PomAbilityCategory category;
 
-        [Header("Resolution")]
-        [SerializeField] private PomAbilityBoardTarget boardTarget;
-        [SerializeField] private float effectValue;
-        [SerializeField, Range(0f, 1f)] private float procChance = 1f;
+        [Header("Usage")]
+        [Tooltip("Which Poms may learn/use this ability. Set 'any' = true so ANY Pom can use it; otherwise the Pom's primary OR secondary type must match.")]
+        [SerializeField] private PomTypeFilter requiredType = PomTypeFilter.Any;
+        [Tooltip("Action Points this ability costs to cast. The Pom must have at least this much current AP.")]
+        [Min(0)]
+        [SerializeField] private int apCost = 1;
+        [Tooltip("Which board(s) the effects apply to. Self = the caster's board, Enemy = the opponent's, Both = both.")]
+        [SerializeField] private PomAbilityBoardTarget boardTarget = PomAbilityBoardTarget.Self;
+
+        [Header("Effects (resolved at round start, last one round)")]
+        [SerializeField] private List<AbilityEffect> effects = new();
 
         public string Id => id;
         public string DisplayName => displayName;
         public string Description => description;
-        public PomType Type => type;
-        public PomAbilityCategory Category => category;
+
+        public PomTypeFilter RequiredType => requiredType;
+        public int ApCost => apCost;
         public PomAbilityBoardTarget BoardTarget => boardTarget;
-        public float EffectValue => effectValue;
-        public float ProcChance => procChance;
+
+        public IReadOnlyList<AbilityEffect> Effects => effects;
     }
 }

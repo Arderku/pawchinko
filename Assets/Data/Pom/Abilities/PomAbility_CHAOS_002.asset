@@ -13,10 +13,21 @@ MonoBehaviour:
   m_Name: PomAbility_CHAOS_002
   m_EditorClassIdentifier: Pawchinko::Pawchinko.PomAbilityData
   id: CHAOS_002
-  displayName: Corrupt Pegs
-  description: 3 random enemy pegs reduce final multiplier by 0.5 when hit.
-  type: 0
-  category: 3
+  displayName: Static Charge
+  description: Weakens every enemy ball's power by half this round.
+  requiredType:
+    any: 1
+    type: 0
+  apCost: 2
   boardTarget: 1
-  effectValue: 0.5
-  procChance: 1
+  effects:
+  - kind: 0
+    mode: 0
+    amount: 0.5
+    chance: 1
+    typeFilter:
+      any: 1
+      type: 0
+    targetIndices: []
+    typeExclusive: 0
+    forceSpawn: 0

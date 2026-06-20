@@ -37,6 +37,13 @@ namespace Pawchinko
         public PomInstance SourcePom { get; private set; }
         public Rigidbody Body { get; private set; }
 
+        /// <summary>
+        /// Resolved per-ball power: the source Pom's base power after any ability ball-power
+        /// modifiers were applied at spawn. Scoring multiplies the (possibly type-gated) bucket
+        /// value by this, so it never recomputes power from the Pom.
+        /// </summary>
+        public float Power { get; private set; } = 1f;
+
         private bool _hasSettled;
 
         public event Action<Ball, Slot> Settled;
@@ -48,28 +55,52 @@ namespace Pawchinko
 
         /// <summary>
         /// Initialises the ball with its id, the side that spawned it, the resolved ball
-        /// <paramref name="type"/>, and the Pom that owns it. The source Pom carries through to
-        /// BallSettledEvent so scoring can apply its stats (Power, etc.) when this ball lands.
+        /// <paramref name="type"/>, the Pom that owns it, and the already-resolved per-ball
+        /// <paramref name="power"/> (base Pom power x any ability modifiers). The source Pom carries
+        /// through to BallSettledEvent so scoring can apply its stats when this ball lands.
         /// <paramref name="type"/> is rolled by the spawner (single-type Pom -> its type;
         /// dual-type Pom -> 50/50) and selects which per-type prefab was instantiated, so it
         /// always matches this ball's visuals / PhysicsMaterial.
         /// </summary>
-        public void Init(int id, Side side, PomType type, PomInstance sourcePom)
+        public void Init(int id, Side side, PomType type, PomInstance sourcePom, float power)
         {
             this.id = id;
             this.side = side;
             this.type = type;
             SourcePom = sourcePom;
+            Power = power;
             _hasSettled = false;
 
             // Power readout floats above the ball. Hidden automatically for 1× balls.
             if (powerLabel != null)
             {
-                float power = sourcePom != null && sourcePom.data != null && sourcePom.data.BaseStats != null
-                    ? sourcePom.data.BaseStats.power
-                    : 1f;
                 powerLabel.SetPower(power);
             }
+        }
+
+        /// <summary>
+        /// Peg-effect hook: when the ball bounces off a peg that an ability charged this round,
+        /// the peg grows/shrinks the ball's power (per-hit chance, optionally type-gated). The
+        /// new power flows through to scoring via BallSettledEvent, and the floating label updates
+        /// live so the change is visible as the ball falls. Hidden pegs have their collider
+        /// disabled, so they never reach this handler.
+        /// </summary>
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (_hasSettled) return;
+
+            var peg = collision.collider != null ? collision.collider.GetComponentInParent<Peg>() : null;
+            if (peg == null) return;
+
+            var gm = GameManager.Instance;
+            if (gm == null || gm.AbilityManager == null) return;
+
+            var mods = gm.AbilityManager.GetModifiers(side);
+            float newPower = mods.ApplyPegHit(Power, peg.PegIndex, type);
+            if (Mathf.Approximately(newPower, Power)) return;
+
+            Power = newPower;
+            if (powerLabel != null) powerLabel.SetPower(Power);
         }
 
         /// <summary>

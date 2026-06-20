@@ -69,8 +69,10 @@ namespace Pawchinko
     /// Published when a ball physically settles in a slot trigger. SourcePom is the active Pom
     /// instance that spawned this ball - scoring uses it to apply per-Pom Power (and later
     /// stat-driven modifiers). May be null only if the ball was spawned without a Pom (debug
-    /// paths). ContactPoint is the slot's world position - used by UI systems to start a
-    /// score popup animation from where the ball landed.
+    /// paths). BallType is the ball's rolled type (for type-gated bucket rules) and Power is the
+    /// ball's already-resolved per-ball power (base Pom power x any ability modifiers), so scoring
+    /// does not recompute it. ContactPoint is the slot's world position - used by UI systems to
+    /// start a score popup animation from where the ball landed.
     /// </summary>
     public class BallSettledEvent
     {
@@ -78,15 +80,59 @@ namespace Pawchinko
         public Side Side { get; }
         public int SlotIndex { get; }
         public PomInstance SourcePom { get; }
+        public PomType BallType { get; }
+        public float Power { get; }
         public Vector3 ContactPoint { get; }
 
-        public BallSettledEvent(int ballId, Side side, int slotIndex, PomInstance sourcePom, Vector3 contactPoint)
+        public BallSettledEvent(int ballId, Side side, int slotIndex, PomInstance sourcePom, PomType ballType, float power, Vector3 contactPoint)
         {
             BallId = ballId;
             Side = side;
             SlotIndex = slotIndex;
             SourcePom = sourcePom;
+            BallType = ballType;
+            Power = power;
             ContactPoint = contactPoint;
+        }
+    }
+
+    /// <summary>
+    /// Published by AbilityManager whenever the locked ability selection is (re)resolved into the
+    /// per-side <see cref="RoundModifiers"/> for the current round. Cross-system broadcast (UI/FX
+    /// may react). The gameplay consumers pull the modifiers from AbilityManager when they act, so
+    /// they do not have to cache from this event - it exists for display + future systems.
+    /// </summary>
+    public class AbilitiesResolvedEvent
+    {
+        public RoundModifiers PlayerModifiers { get; }
+        public RoundModifiers EnemyModifiers { get; }
+
+        public AbilitiesResolvedEvent(RoundModifiers playerModifiers, RoundModifiers enemyModifiers)
+        {
+            PlayerModifiers = playerModifiers;
+            EnemyModifiers = enemyModifiers;
+        }
+    }
+
+    /// <summary>
+    /// Published by AbilityManager when a Pom commits an ability for the round (or clears it, with
+    /// <see cref="Ability"/> null). Carries the AP state so the HUD can show cost / remaining AP.
+    /// </summary>
+    public class AbilityCastEvent
+    {
+        public Side Side { get; }
+        public int RosterIndex { get; }
+        public PomAbilityData Ability { get; }
+        public int CurrentAP { get; }
+        public int MaxAP { get; }
+
+        public AbilityCastEvent(Side side, int rosterIndex, PomAbilityData ability, int currentAP, int maxAP)
+        {
+            Side = side;
+            RosterIndex = rosterIndex;
+            Ability = ability;
+            CurrentAP = currentAP;
+            MaxAP = maxAP;
         }
     }
 

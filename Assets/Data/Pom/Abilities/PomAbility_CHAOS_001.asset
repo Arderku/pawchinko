@@ -14,9 +14,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Pawchinko::Pawchinko.PomAbilityData
   id: CHAOS_001
   displayName: Glitch Field
-  description: Randomly increase one bucket by +1 and reduce another by -1 this round.
-  type: 0
-  category: 6
-  boardTarget: 2
-  effectValue: 1
-  procChance: 1
+  description: Doubles the center bucket's value for your board this round.
+  requiredType:
+    any: 0
+    type: 0
+  apCost: 1
+  boardTarget: 0
+  effects:
+  - kind: 5
+    mode: 1
+    amount: 2
+    chance: 0.503
+    typeFilter:
+      any: 1
+      type: 0
+    targetIndices: 03000000
+    typeExclusive: 0
+    forceSpawn: 0
+    pegAction: 0

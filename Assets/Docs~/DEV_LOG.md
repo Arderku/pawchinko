@@ -46,8 +46,9 @@ Assets/Scripts/
     UIManager.cs     - owns BattleHud
     BattleHud.cs     - Start/Exit/Drop, round counter, roster + active card, energy/score/winner
   Gameplay/Battle/
-    Ball.cs          - Rigidbody/SphereCollider component, Settled event
-    Peg.cs           - row/col data marker
+    Ball.cs          - Rigidbody/SphereCollider component, Settled event, peg power-on-hit
+    Peg.cs           - stable PegIndex + per-round hide toggle
+    BattleBoard.cs   - board root marker (Side + cached pegs)
     Slot.cs          - trigger collider, forwards entries to Ball
     BallSpawner.cs   - per-board spawner, jitter + torque, optional material override
   Gameplay/Overworld/
@@ -163,6 +164,33 @@ Completed since last review:
 ## Change log
 
 (Reverse chronological. One entry per agent session.)
+
+### 2026-06-20 - Cursor agent (Claude Opus 4.8) - Ability / Skill System redesign (Phase 2: peg effects + visual peg picker)
+
+Added the deferred peg half of the ability system: abilities can now target specific board pegs to grow/shrink a ball's power on contact or hide pegs for the round, chosen with a board-shaped, clickable peg picker in the inspector.
+
+- **Peg identity**: reworked [Assets/Scripts/Gameplay/Battle/Peg.cs](../Scripts/Gameplay/Battle/Peg.cs) with a stable `PegIndex` + a `SetHidden` toggle (renderer + collider). New [BattleBoard.cs](../Scripts/Gameplay/Battle/BattleBoard.cs) root marker holds the board's `Side` and caches its pegs - needed because `EneamyBoard.prefab` is a prefab **variant** of `PlayerBoard.prefab`, so the pegs (and their indices) are shared and only the root can carry side.
+- **Effect kind**: `AbilityEffectKind.PegEffect` + `PegAction` (PowerOnHit / Hide) in [AbilityEffect.cs](../Scripts/Data/Pom/AbilityEffect.cs). `RoundModifiers` gained `PegPower` entries + a `HiddenPegs` set with `ApplyPegHit(power, pegIndex, type)` (per-hit chance, type-filtered) and `IsPegHidden(pegIndex)`. `AbilityManager.ApplyEffect` routes PegEffect: Hide rolls per peg into `HiddenPegs`; PowerOnHit stores an entry rolled per hit.
+- **Runtime**: `Ball.OnCollisionEnter` looks up the hit `Peg`, applies its side's peg-power modifiers to `Power`, and updates the floating label live. New [Assets/Scripts/Managers/PegManager.cs](../Scripts/Managers/PegManager.cs) hides flagged pegs at `DropRequestedEvent` and restores all pegs at `RoundStartedEvent`; self-created by `BattleSceneRoot` and exposed via `GameManager.PegManager` (discovers boards through `BattleBoard`, so no scene wiring; a no-op until pegs are built).
+- **Editor**: new `Pawchinko/Build Board Pegs` tool adds `Peg` to every `FBX_Pin_*` on the base board with indices ordered top-to-bottom/left-to-right, adds the `BattleBoard` marker (Player base, Enemy override on the variant), and writes a `PegLayout` asset of normalized positions. `AbilityEffectDrawer` uses that layout to draw a clickable peg board (Select All / Clear, live count) for PegEffect, falling back to the raw index array when the layout is missing. `PomAbilityDataEditor` summary + `Build Test Abilities` now cover pegs (*Charged Pegs*, *Phantom Pegs*).
+- **Setup**: run `Pawchinko/Build Board Pegs` once so the scene board instances inherit the pegs + the picker has a layout.
+
+Files: `Peg.cs`, `BattleBoard.cs`, `Ball.cs`, `AbilityEffect.cs`, `RoundModifiers.cs`, `AbilityManager.cs`, `PegManager.cs`, `BattleSceneRoot.cs`, `GameManager.cs`, `PegLayout.cs`, `BuildBoardPegs.cs`, `AbilityEffectDrawer.cs`, `PomAbilityDataEditor.cs`, `BuildTestAbilities.cs`, `PAWCHINKO_DESIGN_GUIDE.md` (§13).
+
+### 2026-06-20 - Cursor agent (Claude Opus 4.8) - Ability / Skill System redesign (Phase 1: composable round-scoped effects + AP)
+
+Replaced the data-only ability stub with a composable, round-scoped ability system. An ability now declares **who can use it, what it costs, which board it hits, and a list of effects**; a new manager resolves the player's locked picks into per-side modifiers that the existing gameplay systems consume for that one round. Pegs are a deliberate **Phase 2** (they still need peg identity + hit detection + an editor picker).
+
+- **Data model**: new [Assets/Scripts/Data/Pom/AbilityEffect.cs](../Scripts/Data/Pom/AbilityEffect.cs) - `AbilityEffectKind` (BallPower, BallCount, BucketModifier, SpawnSlotBias, EnergyPercent), `AbilityValueMode` (Multiply/Add/Set), `PomTypeFilter` (`any` = no restriction, avoids adding `None` to `PomType`), and a flat `[Serializable] AbilityEffect`. Redesigned [PomAbilityData.cs](../Scripts/Data/Pom/PomAbilityData.cs): dropped `category/effectValue/procChance/type`; added `requiredType` (PomTypeFilter), `apCost`, kept `boardTarget`, and a `List<AbilityEffect> effects`. Migrated the two CHAOS sample assets to the new schema (Glitch Field = self bucket x2; Static Charge = enemy ball power x0.5).
+- **AP**: `PomData.baseAP` (default 3) -> `PomInstance.maxAP/currentAP`, seeded in `PomFactory` (which now also auto-fills `learnedAbilities` from the species pool so the picker has content). `PomAbilityLearning` now gates on `requiredType` (`any` = every Pom). AP refills to max at the start of every round.
+- **Round modifiers**: new [Assets/Scripts/Data/RoundModifiers.cs](../Scripts/Data/RoundModifiers.cs) - a per-side bag with query helpers (`ApplyBallPower`, `ApplyBallCount`, `ApplyBucket`, `RollAllowedZones`). Per-round chances are rolled when built; per-ball chances (power, spawn bias) roll at spawn.
+- **Manager**: new [Assets/Scripts/Managers/AbilityManager.cs](../Scripts/Managers/AbilityManager.cs) - validates type + AP, charges/refunds AP as picks change, aggregates effects by `boardTarget` into the two `RoundModifiers`, and publishes `AbilitiesResolvedEvent`. Self-created by `BattleSceneRoot` (no manual scene wiring) and exposed via `GameManager.AbilityManager`. Refills AP + clears selection on `RoundStartedEvent`.
+- **Events**: extended `BallSettledEvent` with `BallType` + resolved `Power`; added `AbilitiesResolvedEvent` and `AbilityCastEvent`.
+- **Consumers**: `BattleManager` builds a per-ball drop list so the ball-count modifier and the spawned count can never disagree (a side that had balls keeps >=1); `BallSpawner` folds in per-ball power + spawn-zone bias (FIFO front-ball gating); `Ball`/`BallManager` carry `Power`/`Type` through to scoring; `ScoringManager` applies bucket value/type rules then scales by the ball's `Power`; `EnergyManager` scales each side's collected score by its energy %.
+- **UI**: `BattleHud.LockAbilitySelection` now routes to `AbilityManager.SelectAbility`; `AbilityPickerView` shows AP cost + an optional current/max AP readout and flags unaffordable picks ("LOW AP"), which the HUD also refuses to lock.
+- **Editor**: new `AbilityEffectDrawer` (shows only the fields relevant to each effect kind), `PomAbilityDataEditor` (plain-language summary), and the `Pawchinko/Build Test Abilities` tool (authors one sample ability per effect kind + assigns a pair to each test Pom). Run it after `Build Test Pom Roster (5v5)`.
+
+Files: `AbilityEffect.cs`, `PomAbilityData.cs`, `PomData.cs`, `RoundModifiers.cs`, `Events.cs`, `AbilityManager.cs`, `BattleSceneRoot.cs`, `GameManager.cs`, `PomFactory.cs`, `PomAbilityLearning.cs`, `Ball.cs`, `BallSpawner.cs`, `BallManager.cs`, `BattleManager.cs`, `ScoringManager.cs`, `EnergyManager.cs`, `BattleHud.cs`, `AbilityPickerView.cs`, `AbilityEffectDrawer.cs`, `PomAbilityDataEditor.cs`, `BuildTestAbilities.cs`, the two `PomAbility_CHAOS_*.asset`, `PAWCHINKO_DESIGN_GUIDE.md` (§13).
 
 ### 2026-06-20 - Cursor agent (Claude Opus 4.8) - All growth styles converge to the 25 cap at level 50
 

@@ -27,6 +27,8 @@ namespace Pawchinko
         [SerializeField] private BallManager ballManager;
         [SerializeField] private ScoringManager scoringManager;
         [SerializeField] private EnergyManager energyManager;
+        [SerializeField] private AbilityManager abilityManager;
+        [SerializeField] private PegManager pegManager;
         [SerializeField] private UIManager uiManager;
 
         public EventSystem EventSystem => eventSystem;
@@ -38,6 +40,8 @@ namespace Pawchinko
         public BallManager BallManager => ballManager;
         public ScoringManager ScoringManager => scoringManager;
         public EnergyManager EnergyManager => energyManager;
+        public AbilityManager AbilityManager => abilityManager;
+        public PegManager PegManager => pegManager;
         public UIManager UIManager => uiManager;
 
         private void Awake()
@@ -101,6 +105,11 @@ namespace Pawchinko
             uiManager = root.UIManager;
 
             battleSceneRoot.Initialize(eventSystem);
+
+            // AbilityManager / PegManager may be created during Initialize, so read them back afterwards.
+            abilityManager = root.AbilityManager;
+            pegManager = root.PegManager;
+
             Debug.Log("[GameManager] Battle scene registered");
         }
 
@@ -117,6 +126,8 @@ namespace Pawchinko
             ballManager = null;
             scoringManager = null;
             energyManager = null;
+            abilityManager = null;
+            pegManager = null;
             uiManager = null;
 
             Debug.Log("[GameManager] Battle scene deregistered");

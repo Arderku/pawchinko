@@ -374,22 +374,36 @@ This loop is **strategic pressure**, not a damage multiplier:
 
 > Abilities are the game's primary interaction and counter system.
 
-- **One ability is resolved per round** per side. *(TBD: selection scope - one of the 3 active Poms' abilities, or chosen from the active-team pool of up to 6 learned abilities.)*
-- Abilities are selected **before the drop** and locked in for the round.
-- **Abilities are typed.** A `PomAbilityDefinition` carries a `PomType`; **a Pom can only learn / use abilities of its own type**. This is enforced in code (`Pom.CanLearn`, `PomDefinition.CanLearn`) - not a soft convention.
-- **Two learned abilities per Pom at runtime.** Each Pom has exactly two ability slots. Learning a third ability replaces the contents of one of those slots; there is no overflow / stash on the Pom itself.
-- **Stats modify ability output, not the ability's own numbers.** Raw effect values (e.g. "50% chance to multiply balls by 2x", "+1 bucket value", "3 pegs become debuff pegs") are authored on `PomAbilityDefinition`. The final in-battle number is computed by `PomAbilityFormula` using the owning Pom's `PomStats`. Power, Luck, etc. **amplify or scale** the result but **never silently overwrite** what the ability sheet says.
-- **Categories**:
-  - Self buff (e.g. extra balls, bucket boost on own board).
-  - Enemy debuff (e.g. shrink enemy buckets).
-  - Peg modifier (e.g. mark pegs for bonus, electrify pegs).
-  - Bucket modifier (e.g. swap bucket values, +0.5 edges).
-  - Board scramble (e.g. random bucket swap, ball-behavior flip).
-- **Illustrative example abilities** (not canonical specs - included only to show the shape an ability can take):
-  - *Glitch Field* (Chaos / Board Scramble) - "Randomly increase one bucket by +1 and reduce another by -1 this round."
-  - *Corrupt Pegs* (Chaos / Peg Debuff) - "3 random enemy pegs reduce final multiplier by 0.5 when hit."
+**Authoring model (implemented).** An ability is a `PomAbilityData` asset = **who can use it + what it costs + which board + a list of effects**:
 
-> **Hard rule**: abilities are the primary interaction and counter system. Mechanics that bypass abilities (e.g. passive type counters, hidden auto-buffs) violate the design. Type matchups produce *gameplay-flow pressure* (see Section 10), not stat changes - the only place stats touch ability output is the explicit, readable `PomAbilityFormula` seam.
+- **Required type** (`PomTypeFilter requiredType`): set `any = true` so *any* Pom can use it; otherwise the Pom's **primary or secondary** type must match. "None / any" is expressed by the filter's `any` flag, NOT a `None` entry in `PomType` (that would break the 6-type ball pipeline). Learnability is enforced in `PomAbilityLearning.CanLearn`.
+- **AP cost** (`apCost`): each Pom has an Action Point pool (`PomData.BaseAP` -> `PomInstance.maxAP/currentAP`). A pick is rejected if the Pom can't afford it. **AP refills to max at the start of every round.**
+- **Board target** (`boardTarget`: Self / Enemy / Both): routes the ability's effects to the player's board, the opponent's, or both.
+- **Effects** (`List<AbilityEffect>`): one ability can stack several. Each effect has a `kind`, a value `mode` (Multiply / Add / Set), an `amount`, a `chance`, an optional `typeFilter` (ball type), and (for some kinds) `targetIndices` / `typeExclusive` / `forceSpawn`.
+
+**Effect kinds:**
+  - **BallPower** - scale/set the power of dropped balls; optional ball-type filter; `chance` rolls **per ball**.
+  - **BallCount** - increase/decrease how many balls the side drops (the spawned count always matches the announced count; a side that had balls keeps at least one).
+  - **BucketModifier** - boost/lower a bucket's value, give a type a bonus, or make a bucket score **only** one type (`typeExclusive`); `chance` rolls **per targeted bucket**. Buckets are indices 0..6.
+  - **SpawnSlotBias** - `forceSpawn` makes all balls drop from the target spawn zones; otherwise each ball has `chance` to be biased toward them. Spawn zones are 0..5.
+  - **EnergyPercent** - scale the energy the side collects from this round's score (e.g. +25% to your own, or a debuff to the enemy's).
+  - **PegEffect** - targets specific board pegs (by stable `pegIndex`) chosen with the inspector's visual peg picker:
+    - `PowerOnHit` - when a ball hits one of the targeted pegs, grow/shrink its `Power` (Multiply/Add/Set); optional ball-type filter; `chance` rolls **per hit**, so a ball can compound the effect across several bounces. The floating power label updates live as the ball falls.
+    - `Hide` - removes the targeted pegs for the round (renderer + collider off), so balls pass straight through; `chance` rolls **per peg**. Pegs are restored at the start of the next round.
+
+**Peg identity.** Every `FBX_Pin_*` carries a `Peg` with a stable `PegIndex` assigned by `Pawchinko/Build Board Pegs` (ordered top-to-bottom, then left-to-right). The enemy board is a prefab variant of the player board, so the pegs - and their indices - are shared; the per-side identity lives on a `BattleBoard` root marker (Player on the base, overridden to Enemy on the variant). The same tool writes a `PegLayout` asset (`Assets/Data/Board/PegLayout.asset`) of normalized peg positions that powers the inspector's board-shaped, clickable peg picker.
+
+**Runtime flow.** Selection happens in the plan window: the player picks at most one ability per active Pom (`BattleHud` -> `AbilityManager.SelectAbility`). `AbilityManager` validates type + AP, then aggregates every locked ability into a per-side `RoundModifiers` bag and publishes `AbilitiesResolvedEvent`. The gameplay systems read those modifiers for that one round: `BattleManager` (ball count), `BallSpawner` (spawn bias + per-ball power), `Ball.OnCollisionEnter` (peg power-on-hit), `PegManager` (hides pegs at drop, restores them at round start), `ScoringManager` (bucket rules, via the ball's `BallType` + resolved `Power` on `BallSettledEvent`), `EnergyManager` (energy %). Per-round chances are rolled once when modifiers are built; per-ball / per-hit chances (power, spawn bias, peg hits) roll at spawn or on contact. Everything clears at the next round start.
+
+- **Two learned abilities per Pom at runtime.** Each Pom has two ability slots (`PomInstance.learnedAbilities`). `PomFactory` temporarily auto-fills them from the species `learnableAbilities` pool so the picker has content until a real learning/progression flow exists.
+- **Stats still modify ability output, not the ability's own authored numbers** - per-ball `Power` (base Pom power x ability ball-power effects) scales the bucket value in scoring; the ability sheet's amounts are never silently overwritten.
+- **Illustrative sample abilities** (authored by `Pawchinko/Build Test Abilities`):
+  - *Glitch Field* (any / Self) - doubles the center bucket's value this round.
+  - *Static Charge* (any / Enemy) - halves every enemy ball's power this round.
+  - *Power Surge* (Self, +50% ball power), *Extra Drop* (Self, +3 balls), *Center Funnel* (Self, force-spawn center zones), *Energy Harvest* (Self, +25% energy).
+  - *Charged Pegs* (Self) - top pegs grow a ball's power x1.25 on hit (50% per hit). *Phantom Pegs* (Self) - hides five pegs for the round to open a straighter drop lane.
+
+> **Hard rule**: abilities are the primary interaction and counter system. Mechanics that bypass abilities (e.g. passive type counters, hidden auto-buffs) violate the design. Type matchups produce *gameplay-flow pressure* (see Section 10), not stat changes.
 
 ---
 

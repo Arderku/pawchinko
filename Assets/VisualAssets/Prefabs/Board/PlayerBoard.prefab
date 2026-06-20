@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 8930850108218358080}
   - component: {fileID: 4314003550791976778}
   - component: {fileID: 5346248444021257503}
+  - component: {fileID: 1287013148155158530}
   m_Layer: 9
   m_Name: FBX_Pin_05
   m_TagString: Untagged
@@ -113,6 +114,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -131376006416349430, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &1287013148155158530
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 107605536908794503}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 4
+  row: -1
+  col: -1
 --- !u!1 &369155741415427822
 GameObject:
   m_ObjectHideFlags: 0
@@ -412,6 +428,7 @@ GameObject:
   - component: {fileID: 4612685342373031660}
   - component: {fileID: 9051853728206296614}
   - component: {fileID: 5532849054379220929}
+  - component: {fileID: 1020606047452435991}
   m_Layer: 9
   m_Name: FBX_Pin_24
   m_TagString: Untagged
@@ -513,6 +530,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -3724964217924958585, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &1020606047452435991
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 464320435509794307}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 23
+  row: -1
+  col: -1
 --- !u!1 &469696778394326610
 GameObject:
   m_ObjectHideFlags: 0
@@ -525,6 +557,7 @@ GameObject:
   - component: {fileID: 8597277691095357055}
   - component: {fileID: 6163187089192065094}
   - component: {fileID: 112322794081733093}
+  - component: {fileID: 1659604601147332656}
   m_Layer: 9
   m_Name: FBX_Pin_34
   m_TagString: Untagged
@@ -626,6 +659,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 9186401212448379214, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &1659604601147332656
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 469696778394326610}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 33
+  row: -1
+  col: -1
 --- !u!1 &643971612598483845
 GameObject:
   m_ObjectHideFlags: 0
@@ -728,6 +776,7 @@ GameObject:
   - component: {fileID: 1799923136938709136}
   - component: {fileID: 3482108211680086194}
   - component: {fileID: 6683796732150325151}
+  - component: {fileID: 6047079807495196627}
   m_Layer: 9
   m_Name: FBX_Pin_06
   m_TagString: Untagged
@@ -829,6 +878,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -3015018338291344422, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &6047079807495196627
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 662353634073069633}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 5
+  row: -1
+  col: -1
 --- !u!1 &688845577147891895
 GameObject:
   m_ObjectHideFlags: 0
@@ -841,6 +905,7 @@ GameObject:
   - component: {fileID: 5335464291490724623}
   - component: {fileID: 4889710597185085972}
   - component: {fileID: 6611213097176814144}
+  - component: {fileID: 9172939237746707339}
   m_Layer: 9
   m_Name: FBX_Pin_29
   m_TagString: Untagged
@@ -942,6 +1007,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -486067014020916369, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &9172939237746707339
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 688845577147891895}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 28
+  row: -1
+  col: -1
 --- !u!1 &708829755637703139
 GameObject:
   m_ObjectHideFlags: 0
@@ -954,6 +1034,7 @@ GameObject:
   - component: {fileID: 7043734862576645739}
   - component: {fileID: 131490421860710360}
   - component: {fileID: 3396427364191047664}
+  - component: {fileID: 6607999591984589562}
   m_Layer: 9
   m_Name: FBX_Pin_27
   m_TagString: Untagged
@@ -1055,6 +1136,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 6216185828527897783, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &6607999591984589562
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 708829755637703139}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 26
+  row: -1
+  col: -1
 --- !u!1 &827775751834898827
 GameObject:
   m_ObjectHideFlags: 0
@@ -1067,6 +1163,7 @@ GameObject:
   - component: {fileID: 1799981670523914775}
   - component: {fileID: 4450945673371216816}
   - component: {fileID: 7881956825389500112}
+  - component: {fileID: 3188266429774769855}
   m_Layer: 9
   m_Name: FBX_Pin_16
   m_TagString: Untagged
@@ -1168,6 +1265,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -7408017968890068978, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &3188266429774769855
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 827775751834898827}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 15
+  row: -1
+  col: -1
 --- !u!1 &1022411710180104514
 GameObject:
   m_ObjectHideFlags: 0
@@ -1180,6 +1292,7 @@ GameObject:
   - component: {fileID: 8325535834502827905}
   - component: {fileID: 4138619712292085972}
   - component: {fileID: 6203914130410342850}
+  - component: {fileID: 1052093069860257802}
   m_Layer: 9
   m_Name: FBX_Pin_30
   m_TagString: Untagged
@@ -1281,6 +1394,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 6989935445167675489, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &1052093069860257802
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1022411710180104514}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 29
+  row: -1
+  col: -1
 --- !u!1 &1166695990622527478
 GameObject:
   m_ObjectHideFlags: 0
@@ -1293,6 +1421,7 @@ GameObject:
   - component: {fileID: 7079576548125213890}
   - component: {fileID: 1933515323804281876}
   - component: {fileID: 9183684270688050552}
+  - component: {fileID: 8345184354844284086}
   m_Layer: 9
   m_Name: FBX_Pin_25
   m_TagString: Untagged
@@ -1394,6 +1523,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -4952514275024796624, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &8345184354844284086
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1166695990622527478}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 24
+  row: -1
+  col: -1
 --- !u!1 &1338462041889765434
 GameObject:
   m_ObjectHideFlags: 0
@@ -1421,7 +1565,7 @@ Transform:
   m_GameObject: {fileID: 1338462041889765434}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.7700007, y: 0, z: 0}
+  m_LocalPosition: {x: 1.7700012, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2187,6 +2331,7 @@ GameObject:
   - component: {fileID: 9015497945456464423}
   - component: {fileID: 7532460090275366930}
   - component: {fileID: 442449882166906601}
+  - component: {fileID: 6063999695395792123}
   m_Layer: 9
   m_Name: FBX_Pin_15
   m_TagString: Untagged
@@ -2288,6 +2433,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -22556951242275427, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &6063999695395792123
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1547682527038246013}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 14
+  row: -1
+  col: -1
 --- !u!1 &2207269319038431425
 GameObject:
   m_ObjectHideFlags: 0
@@ -2413,6 +2573,7 @@ GameObject:
   - component: {fileID: 2949049441420423140}
   - component: {fileID: 3809818935661439449}
   - component: {fileID: 7246831953057178218}
+  - component: {fileID: 7618683680228225226}
   m_Layer: 9
   m_Name: FBX_Pin_12
   m_TagString: Untagged
@@ -2514,6 +2675,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 7857445296677889763, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &7618683680228225226
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2292353905037717120}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 11
+  row: -1
+  col: -1
 --- !u!1 &2338154183208393111
 GameObject:
   m_ObjectHideFlags: 0
@@ -2784,6 +2960,7 @@ GameObject:
   - component: {fileID: 2497738157236559027}
   - component: {fileID: 4264103253373779392}
   - component: {fileID: 6264605512300263968}
+  - component: {fileID: 1106169414575251281}
   m_Layer: 9
   m_Name: FBX_Pin_02
   m_TagString: Untagged
@@ -2885,6 +3062,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -463784563824587152, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &1106169414575251281
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2657650279656840726}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 1
+  row: -1
+  col: -1
 --- !u!1 &2684473866123689265
 GameObject:
   m_ObjectHideFlags: 0
@@ -3002,7 +3194,7 @@ Transform:
   m_GameObject: {fileID: 2840538646106673394}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.1800008, y: 0, z: 0}
+  m_LocalPosition: {x: 1.1800009, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -3071,7 +3263,7 @@ Transform:
   m_GameObject: {fileID: 2936804396840348937}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.5899999, y: 0, z: 0}
+  m_LocalPosition: {x: -0.59000003, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -3322,6 +3514,7 @@ GameObject:
   - component: {fileID: 3374797069679471431}
   - component: {fileID: 7615485208459532177}
   - component: {fileID: 461384700614741444}
+  - component: {fileID: 4847044971611990228}
   m_Layer: 9
   m_Name: FBX_Pin_08
   m_TagString: Untagged
@@ -3423,6 +3616,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -4195923175081483115, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &4847044971611990228
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3072012281764396236}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 7
+  row: -1
+  col: -1
 --- !u!1 &3234594690365163929
 GameObject:
   m_ObjectHideFlags: 0
@@ -3435,6 +3643,7 @@ GameObject:
   - component: {fileID: 7246301640064208312}
   - component: {fileID: 6817977079030098319}
   - component: {fileID: 3136005347475089839}
+  - component: {fileID: 5357338807139570981}
   m_Layer: 9
   m_Name: FBX_Pin_22
   m_TagString: Untagged
@@ -3536,6 +3745,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 6003920723746512272, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &5357338807139570981
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3234594690365163929}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 21
+  row: -1
+  col: -1
 --- !u!1 &3567432051371569063
 GameObject:
   m_ObjectHideFlags: 0
@@ -3579,6 +3803,7 @@ GameObject:
   - component: {fileID: 941570803207219428}
   - component: {fileID: 382344291002984141}
   - component: {fileID: 8204119803372921898}
+  - component: {fileID: 1546227536288096489}
   m_Layer: 9
   m_Name: FBX_Pin_17
   m_TagString: Untagged
@@ -3680,6 +3905,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -4509960861522320106, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &1546227536288096489
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3594014339889463129}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 16
+  row: -1
+  col: -1
 --- !u!1 &3933458429196389505
 GameObject:
   m_ObjectHideFlags: 0
@@ -3692,6 +3932,7 @@ GameObject:
   - component: {fileID: 7136481545246787715}
   - component: {fileID: 6663525353392508734}
   - component: {fileID: 239626229219567713}
+  - component: {fileID: 5730227882249932015}
   m_Layer: 9
   m_Name: FBX_Pin_01
   m_TagString: Untagged
@@ -3793,6 +4034,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 3505479002124780827, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &5730227882249932015
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3933458429196389505}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 0
+  row: -1
+  col: -1
 --- !u!1 &3980301214143839931
 GameObject:
   m_ObjectHideFlags: 0
@@ -3820,7 +4076,7 @@ Transform:
   m_GameObject: {fileID: 3980301214143839931}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.1800002, y: 0, z: 0}
+  m_LocalPosition: {x: -1.1800003, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -3874,6 +4130,7 @@ GameObject:
   - component: {fileID: 6315661871130435090}
   - component: {fileID: 1994372733430910739}
   - component: {fileID: 5361090088089270095}
+  - component: {fileID: 2709009187181327643}
   m_Layer: 9
   m_Name: FBX_Pin_36
   m_TagString: Untagged
@@ -3975,6 +4232,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -3943015826515418977, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &2709009187181327643
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4471997262927466708}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 35
+  row: -1
+  col: -1
 --- !u!1 &4576296328897847256
 GameObject:
   m_ObjectHideFlags: 0
@@ -3987,6 +4259,7 @@ GameObject:
   - component: {fileID: 1242659012984786345}
   - component: {fileID: 5171802649073388446}
   - component: {fileID: 8794928667562753984}
+  - component: {fileID: 3348198317896053899}
   m_Layer: 9
   m_Name: FBX_Pin_13
   m_TagString: Untagged
@@ -4088,6 +4361,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -5975967355775653770, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &3348198317896053899
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4576296328897847256}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 12
+  row: -1
+  col: -1
 --- !u!1 &4911781745315528106
 GameObject:
   m_ObjectHideFlags: 0
@@ -4100,6 +4388,7 @@ GameObject:
   - component: {fileID: 5005443533933262774}
   - component: {fileID: 4270759135815954389}
   - component: {fileID: 5976938030772493296}
+  - component: {fileID: 9084551219135929032}
   m_Layer: 9
   m_Name: FBX_Pin_26
   m_TagString: Untagged
@@ -4201,6 +4490,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -5576800921196924984, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &9084551219135929032
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4911781745315528106}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 25
+  row: -1
+  col: -1
 --- !u!1 &4959309275297939614
 GameObject:
   m_ObjectHideFlags: 0
@@ -4303,6 +4607,7 @@ GameObject:
   - component: {fileID: 833915676651124868}
   - component: {fileID: 5722065603720184891}
   - component: {fileID: 7303200944208150371}
+  - component: {fileID: 6793690529474442601}
   m_Layer: 9
   m_Name: FBX_Pin_14
   m_TagString: Untagged
@@ -4404,6 +4709,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -7036154728119288530, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &6793690529474442601
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5032307072392355208}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 13
+  row: -1
+  col: -1
 --- !u!1 &5437423460687071543
 GameObject:
   m_ObjectHideFlags: 0
@@ -4416,6 +4736,7 @@ GameObject:
   - component: {fileID: 4785550737439269121}
   - component: {fileID: 6762641652790723335}
   - component: {fileID: 3463120931568720249}
+  - component: {fileID: 177043491139012553}
   m_Layer: 9
   m_Name: FBX_Pin_32
   m_TagString: Untagged
@@ -4517,6 +4838,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 1774723545936592362, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &177043491139012553
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5437423460687071543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 31
+  row: -1
+  col: -1
 --- !u!1 &5684947553611420357
 GameObject:
   m_ObjectHideFlags: 0
@@ -4641,6 +4977,7 @@ GameObject:
   - component: {fileID: 3211484903887322092}
   - component: {fileID: 4329088435273728478}
   - component: {fileID: 6474465208621340662}
+  - component: {fileID: 3170631399928601250}
   m_Layer: 9
   m_Name: FBX_Pin_09
   m_TagString: Untagged
@@ -4742,6 +5079,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 4929029219632925421, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &3170631399928601250
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5849683382256817530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 8
+  row: -1
+  col: -1
 --- !u!1 &5892106869134808516
 GameObject:
   m_ObjectHideFlags: 0
@@ -4754,6 +5106,7 @@ GameObject:
   - component: {fileID: 6649667496696018531}
   - component: {fileID: 6280317976558806691}
   - component: {fileID: 1027162051725514155}
+  - component: {fileID: 4243453109325884442}
   m_Layer: 9
   m_Name: FBX_Pin_31
   m_TagString: Untagged
@@ -4855,6 +5208,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 5267914892086035172, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &4243453109325884442
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5892106869134808516}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 30
+  row: -1
+  col: -1
 --- !u!1 &6286916206675672892
 GameObject:
   m_ObjectHideFlags: 0
@@ -4867,6 +5235,7 @@ GameObject:
   - component: {fileID: 7461851420092986566}
   - component: {fileID: 3914633586152060545}
   - component: {fileID: 3838891835535809082}
+  - component: {fileID: 3250016221055672365}
   m_Layer: 9
   m_Name: FBX_Pin_04
   m_TagString: Untagged
@@ -4968,6 +5337,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -6301464111640204334, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &3250016221055672365
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6286916206675672892}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 3
+  row: -1
+  col: -1
 --- !u!1 &6609543591561793531
 GameObject:
   m_ObjectHideFlags: 0
@@ -4980,6 +5364,7 @@ GameObject:
   - component: {fileID: 2213252927553152565}
   - component: {fileID: 2317942094428041734}
   - component: {fileID: 1294839447763574135}
+  - component: {fileID: 6448990111647974672}
   m_Layer: 9
   m_Name: FBX_Pin_18
   m_TagString: Untagged
@@ -5081,6 +5466,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 5006094501625365396, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &6448990111647974672
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6609543591561793531}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 17
+  row: -1
+  col: -1
 --- !u!1 &6617639682039557233
 GameObject:
   m_ObjectHideFlags: 0
@@ -5090,6 +5490,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 698650372603504281}
+  - component: {fileID: 1526771711712951964}
   m_Layer: 0
   m_Name: PlayerBoard
   m_TagString: Untagged
@@ -5154,6 +5555,19 @@ Transform:
   - {fileID: 4671229932096823099}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: -90, z: 0}
+--- !u!114 &1526771711712951964
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6617639682039557233}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a848d378e4efba46976726e7f3bbd83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.BattleBoard
+  side: 0
 --- !u!1 &6748116401657839593
 GameObject:
   m_ObjectHideFlags: 0
@@ -5166,6 +5580,7 @@ GameObject:
   - component: {fileID: 4195301864488482376}
   - component: {fileID: 1384391357459738150}
   - component: {fileID: 6838897232970719453}
+  - component: {fileID: 1702249345193936019}
   m_Layer: 9
   m_Name: FBX_Pin_21
   m_TagString: Untagged
@@ -5267,6 +5682,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -4310036546099625528, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &1702249345193936019
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6748116401657839593}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 20
+  row: -1
+  col: -1
 --- !u!1 &6788078953196654137
 GameObject:
   m_ObjectHideFlags: 0
@@ -5279,6 +5709,7 @@ GameObject:
   - component: {fileID: 3985547283487597749}
   - component: {fileID: 6543321469178445744}
   - component: {fileID: 840700050129201646}
+  - component: {fileID: 6617262320017579993}
   m_Layer: 9
   m_Name: FBX_Pin_33
   m_TagString: Untagged
@@ -5380,6 +5811,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -3943052187968823449, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &6617262320017579993
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6788078953196654137}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 32
+  row: -1
+  col: -1
 --- !u!1 &6839685455357022598
 GameObject:
   m_ObjectHideFlags: 0
@@ -5392,6 +5838,7 @@ GameObject:
   - component: {fileID: 2835093246427207941}
   - component: {fileID: 1770856794965340353}
   - component: {fileID: 1598621843599471048}
+  - component: {fileID: 6330585471554948614}
   m_Layer: 9
   m_Name: FBX_Pin_23
   m_TagString: Untagged
@@ -5493,6 +5940,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -6491706205548311275, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &6330585471554948614
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6839685455357022598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 22
+  row: -1
+  col: -1
 --- !u!1 &7277997919316726973
 GameObject:
   m_ObjectHideFlags: 0
@@ -5505,6 +5967,7 @@ GameObject:
   - component: {fileID: 205638823667236273}
   - component: {fileID: 8785462739378650738}
   - component: {fileID: 3187810599391689065}
+  - component: {fileID: 915004780316405479}
   m_Layer: 9
   m_Name: FBX_Pin_35
   m_TagString: Untagged
@@ -5606,6 +6069,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 4093744135047564564, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &915004780316405479
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7277997919316726973}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 34
+  row: -1
+  col: -1
 --- !u!1 &7358902111827527419
 GameObject:
   m_ObjectHideFlags: 0
@@ -5618,6 +6096,7 @@ GameObject:
   - component: {fileID: 6199681754324539473}
   - component: {fileID: 5959826778994216590}
   - component: {fileID: 2871373256331404905}
+  - component: {fileID: 6074584811019134482}
   m_Layer: 9
   m_Name: FBX_Pin_11
   m_TagString: Untagged
@@ -5719,6 +6198,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -3022467644531033698, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &6074584811019134482
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7358902111827527419}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 10
+  row: -1
+  col: -1
 --- !u!1 &7391801059567779563
 GameObject:
   m_ObjectHideFlags: 0
@@ -5911,6 +6405,7 @@ GameObject:
   - component: {fileID: 5140784547498888766}
   - component: {fileID: 6514719869889539924}
   - component: {fileID: 3133254893514343624}
+  - component: {fileID: 2588584641170610936}
   m_Layer: 9
   m_Name: FBX_Pin_19
   m_TagString: Untagged
@@ -6012,6 +6507,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 5180873064080886450, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &2588584641170610936
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7651975538787423176}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 18
+  row: -1
+  col: -1
 --- !u!1 &7781809894983939291
 GameObject:
   m_ObjectHideFlags: 0
@@ -6152,7 +6662,7 @@ Transform:
   m_GameObject: {fileID: 7882278552941963686}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.00000035762787, y: 0, z: 0}
+  m_LocalPosition: {x: 0.0000002682209, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -6206,6 +6716,7 @@ GameObject:
   - component: {fileID: 8916874024175257494}
   - component: {fileID: 5229367902074720255}
   - component: {fileID: 1513110045781640421}
+  - component: {fileID: 3218347618529015644}
   m_Layer: 9
   m_Name: FBX_Pin_28
   m_TagString: Untagged
@@ -6307,6 +6818,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 1528186497266366917, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &3218347618529015644
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7890462188065650552}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 27
+  row: -1
+  col: -1
 --- !u!1 &8089350181296372681
 GameObject:
   m_ObjectHideFlags: 0
@@ -6334,7 +6860,7 @@ Transform:
   m_GameObject: {fileID: 8089350181296372681}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.7700005, y: 0, z: 0}
+  m_LocalPosition: {x: -1.7700007, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -6585,6 +7111,7 @@ GameObject:
   - component: {fileID: 4733358265305664520}
   - component: {fileID: 2462955460453587162}
   - component: {fileID: 7606464857458096292}
+  - component: {fileID: 4655154927065132658}
   m_Layer: 9
   m_Name: FBX_Pin_10
   m_TagString: Untagged
@@ -6686,6 +7213,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -6812754719749325339, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &4655154927065132658
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8533224105457265638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 9
+  row: -1
+  col: -1
 --- !u!1 &8742724703972695505
 GameObject:
   m_ObjectHideFlags: 0
@@ -6698,6 +7240,7 @@ GameObject:
   - component: {fileID: 8102974472565008915}
   - component: {fileID: 1049933212815646367}
   - component: {fileID: 3729174696481925657}
+  - component: {fileID: 2923811946500860464}
   m_Layer: 9
   m_Name: FBX_Pin_03
   m_TagString: Untagged
@@ -6799,6 +7342,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 4656319155619335612, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &2923811946500860464
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8742724703972695505}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 2
+  row: -1
+  col: -1
 --- !u!1 &8757196119645628868
 GameObject:
   m_ObjectHideFlags: 0
@@ -6844,10 +7402,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6652a1b26f35b53409f4b3b0f42ad612, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Pawchinko::Pawchinko.BallSpawner
-  ballPrefab: {fileID: 6406702961281300121, guid: b0aa57e622f8fea4caadc506ec3b5cd0, type: 3}
+  ballLibrary: {fileID: 0}
   spawnPoint: {fileID: 3007167144994772737}
   ballContainer: {fileID: 8634311732660450876}
-  ballMaterialOverride: {fileID: 2100000, guid: 355cd86c336af8644b588f34b6cec940, type: 2}
   zoneCount: 6
   zoneSpreadHalfWidth: 1.2
   zoneClearMargin: 0.55
@@ -6867,6 +7424,7 @@ GameObject:
   - component: {fileID: 2091695151434020125}
   - component: {fileID: 7099520125581710565}
   - component: {fileID: 5082843527769090305}
+  - component: {fileID: 760660235851717744}
   m_Layer: 9
   m_Name: FBX_Pin_20
   m_TagString: Untagged
@@ -6968,6 +7526,21 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 9061711658060198405, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &760660235851717744
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9024806975712420678}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 19
+  row: -1
+  col: -1
 --- !u!1 &9107536267685588537
 GameObject:
   m_ObjectHideFlags: 0
@@ -6995,7 +7568,7 @@ Transform:
   m_GameObject: {fileID: 9107536267685588537}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.5900006, y: 0, z: 0}
+  m_LocalPosition: {x: 0.59000057, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -7049,6 +7622,7 @@ GameObject:
   - component: {fileID: 7638355522164132976}
   - component: {fileID: 6736594447637876237}
   - component: {fileID: 8453130927921117617}
+  - component: {fileID: 4324560435857084671}
   m_Layer: 9
   m_Name: FBX_Pin_07
   m_TagString: Untagged
@@ -7150,3 +7724,18 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -1969294961379825946, guid: c2edb9ed917cd204198847a785135702, type: 3}
+--- !u!114 &4324560435857084671
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9150043978977663578}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0548e12afe77f6949bc1ee78710d9562, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Pawchinko::Pawchinko.Peg
+  pegIndex: 6
+  row: -1
+  col: -1

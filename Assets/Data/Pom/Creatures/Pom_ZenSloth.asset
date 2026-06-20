@@ -21,6 +21,7 @@ MonoBehaviour:
   secondaryType: 0
   maxLevel: 50
   baseEnergy: 20
+  baseAP: 3
   baseStats:
     power: 1.6
     weight: 4

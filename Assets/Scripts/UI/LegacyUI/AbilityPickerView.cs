@@ -18,6 +18,10 @@ namespace Pawchinko
         [Header("Root")]
         [SerializeField] private GameObject root;
 
+        [Header("AP Readout (optional)")]
+        [Tooltip("Optional label that shows the focused Pom's current/max Action Points. Safe to leave unassigned.")]
+        [SerializeField] private TMP_Text apLabel;
+
         [Header("Option Labels (length 3: None, Slot1, Slot2)")]
         [SerializeField] private TMP_Text noneLabel;
         [SerializeField] private TMP_Text slot1Label;
@@ -44,12 +48,14 @@ namespace Pawchinko
         /// <summary>Refreshes labels + highlight without toggling visibility.</summary>
         public void Refresh(PomInstance focused, int selectedIndex)
         {
+            int currentAP = focused != null ? focused.currentAP : 0;
+            int maxAP = focused != null ? focused.maxAP : 0;
+
+            if (apLabel != null) apLabel.text = $"AP {currentAP}/{maxAP}";
             if (noneLabel != null) noneLabel.text = "NONE";
 
-            string slot1 = ResolveLabel(focused, 0);
-            string slot2 = ResolveLabel(focused, 1);
-            if (slot1Label != null) slot1Label.text = slot1;
-            if (slot2Label != null) slot2Label.text = slot2;
+            if (slot1Label != null) slot1Label.text = ResolveLabel(focused, 0, currentAP);
+            if (slot2Label != null) slot2Label.text = ResolveLabel(focused, 1, currentAP);
 
             int clamped = Mathf.Clamp(selectedIndex, 0, OptionCount - 1);
             if (noneHighlight != null) noneHighlight.SetActive(clamped == NoneIndex);
@@ -57,12 +63,17 @@ namespace Pawchinko
             if (slot2Highlight != null) slot2Highlight.SetActive(clamped == Slot2Index);
         }
 
-        private static string ResolveLabel(PomInstance focused, int learnedSlot)
+        private static string ResolveLabel(PomInstance focused, int learnedSlot, int currentAP)
         {
             if (focused == null || focused.learnedAbilities == null) return "(empty)";
             if (learnedSlot < 0 || learnedSlot >= focused.learnedAbilities.Length) return "(empty)";
             var ability = focused.learnedAbilities[learnedSlot];
-            return ability != null ? ability.DisplayName : "(empty)";
+            if (ability == null) return "(empty)";
+
+            string label = $"{ability.DisplayName}  ({ability.ApCost} AP)";
+            // Flag picks the Pom cannot currently afford; the HUD also rejects locking them.
+            if (ability.ApCost > currentAP) label += "  - LOW AP";
+            return label;
         }
     }
 }

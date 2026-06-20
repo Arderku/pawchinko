@@ -435,12 +435,41 @@ namespace Pawchinko
 
         private void LockAbilitySelection()
         {
-            // Ability resolution is still TBD per the design doc; for now we just remember
-            // _abilitySelection so future systems can read the player's choice for the round.
-            // Focus remains on the originating active card so the player can keep navigating.
+            // Route the highlighted choice into the AbilityManager, which validates AP + type,
+            // (re)builds the round modifiers and broadcasts the new state. NONE clears this Pom's
+            // selection. Focus remains on the originating active card so the player keeps navigating.
             _pickerOpen = false;
             if (playerAbilityPicker != null) playerAbilityPicker.Hide();
-            Debug.Log($"[BattleHud] Ability locked: pom={_focusIndex}, selection={_abilitySelection}");
+
+            int activeIndex = _focusIndex; // active card index (0..MaxActivePoms-1) while picker open
+            var am = GameManager.Instance != null ? GameManager.Instance.AbilityManager : null;
+            var pom = GetFocusedActivePom();
+            if (am == null || pom == null)
+            {
+                Debug.LogWarning("[BattleHud] Cannot lock ability - AbilityManager or focused Pom unavailable.");
+                return;
+            }
+
+            PomAbilityData ability = null;
+            if (_abilitySelection == AbilityPickerView.Slot1Index) ability = LearnedAbilityAt(pom, 0);
+            else if (_abilitySelection == AbilityPickerView.Slot2Index) ability = LearnedAbilityAt(pom, 1);
+
+            bool ok = am.SelectAbility(activeIndex, ability);
+            if (!ok && ability != null)
+            {
+                Debug.Log($"[BattleHud] Ability '{ability.DisplayName}' not locked (unaffordable or type-locked). Selection unchanged.");
+            }
+            else
+            {
+                Debug.Log($"[BattleHud] Ability locked: pom={activeIndex}, ability={(ability != null ? ability.DisplayName : "NONE")}, AP={pom.currentAP}/{pom.maxAP}");
+            }
+        }
+
+        private static PomAbilityData LearnedAbilityAt(PomInstance pom, int learnedSlot)
+        {
+            if (pom == null || pom.learnedAbilities == null) return null;
+            if (learnedSlot < 0 || learnedSlot >= pom.learnedAbilities.Length) return null;
+            return pom.learnedAbilities[learnedSlot];
         }
 
         private void CancelAbilityPicker()

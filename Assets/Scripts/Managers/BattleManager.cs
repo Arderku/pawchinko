@@ -19,6 +19,10 @@ namespace Pawchinko
         public const int MaxBenchPoms = 2;
         public const int MaxRosterPoms = MaxActivePoms + MaxBenchPoms;
 
+        // Hard ceiling on a single side's per-round ball count after ability modifiers, so a
+        // runaway multiplier can't spawn thousands of balls and lock the round.
+        private const int MaxDropBalls = 150;
+
         [Header("References")]
         [SerializeField] private EventSystem eventSystem;
 
@@ -199,8 +203,17 @@ namespace Pawchinko
             var playerActive = GetActivePoms(Side.Player);
             var enemyActive = GetActivePoms(Side.Enemy);
 
-            int playerBalls = CountBalls(playerActive);
-            int enemyBalls = CountBalls(enemyActive);
+            var abilityManager = GameManager.Instance != null ? GameManager.Instance.AbilityManager : null;
+            var playerMods = abilityManager != null ? abilityManager.GetModifiers(Side.Player) : RoundModifiers.Empty;
+            var enemyMods = abilityManager != null ? abilityManager.GetModifiers(Side.Enemy) : RoundModifiers.Empty;
+
+            // Expand to a per-ball source-Pom list (so the count modifier and the spawned balls
+            // can never disagree, which would stall ScoringManager waiting on a phantom ball).
+            var playerDrops = BuildDropList(playerActive, playerMods);
+            var enemyDrops = BuildDropList(enemyActive, enemyMods);
+
+            int playerBalls = playerDrops.Count;
+            int enemyBalls = enemyDrops.Count;
 
             if (playerBalls <= 0 || enemyBalls <= 0)
             {
@@ -212,27 +225,56 @@ namespace Pawchinko
 
             eventSystem.Publish(new DropRequestedEvent(playerBalls, enemyBalls));
 
-            SpawnSide(ballManager, Side.Player, playerActive);
-            SpawnSide(ballManager, Side.Enemy, enemyActive);
+            SpawnSide(ballManager, Side.Player, playerDrops);
+            SpawnSide(ballManager, Side.Enemy, enemyDrops);
 
             Debug.Log($"[BattleManager] Round {currentRound} drop - P={playerBalls} balls ({playerActive.Count} active Poms), E={enemyBalls} balls ({enemyActive.Count} active Poms)");
         }
 
-        private static int CountBalls(IReadOnlyList<PomInstance> activePoms)
+        /// <summary>
+        /// Builds the per-ball source-Pom list for a side: one entry per ball the side will drop,
+        /// after applying the round's ball-count modifier. Extra balls are spread round-robin
+        /// across the active Poms; removed balls are trimmed from the tail. A side that had any
+        /// balls keeps at least one so the round can still resolve.
+        /// </summary>
+        private static List<PomInstance> BuildDropList(IReadOnlyList<PomInstance> activePoms, RoundModifiers mods)
         {
-            int total = 0;
-            for (int i = 0; i < activePoms.Count; i++) total += PomBallCount.GetCurrentBallCount(activePoms[i]);
-            return total;
-        }
-
-        private static void SpawnSide(BallManager ballManager, Side side, IReadOnlyList<PomInstance> activePoms)
-        {
+            var list = new List<PomInstance>();
             for (int i = 0; i < activePoms.Count; i++)
             {
                 var pom = activePoms[i];
                 int count = PomBallCount.GetCurrentBallCount(pom);
-                for (int b = 0; b < count; b++) ballManager.SpawnFor(side, pom);
+                for (int b = 0; b < count; b++) list.Add(pom);
             }
+
+            int baseCount = list.Count;
+            int target = mods != null ? mods.ApplyBallCount(baseCount) : baseCount;
+            if (baseCount > 0) target = Mathf.Max(1, target);
+            target = Mathf.Min(target, MaxDropBalls);
+
+            if (target == baseCount || baseCount == 0) return list;
+
+            if (target < baseCount)
+            {
+                list.RemoveRange(target, baseCount - target);
+                return list;
+            }
+
+            // Append extra balls round-robin across the active Poms (baseCount > 0 guarantees one).
+            int idx = 0;
+            int guard = 0;
+            while (list.Count < target && guard++ < MaxDropBalls * 2)
+            {
+                var pom = activePoms[idx % activePoms.Count];
+                idx++;
+                if (pom != null) list.Add(pom);
+            }
+            return list;
+        }
+
+        private static void SpawnSide(BallManager ballManager, Side side, List<PomInstance> drops)
+        {
+            for (int i = 0; i < drops.Count; i++) ballManager.SpawnFor(side, drops[i]);
         }
 
         private void OnRoundScored(RoundScoredEvent evt)

@@ -12,6 +12,8 @@ namespace Pawchinko
         [SerializeField] private BallManager ballManager;
         [SerializeField] private ScoringManager scoringManager;
         [SerializeField] private EnergyManager energyManager;
+        [SerializeField] private AbilityManager abilityManager;
+        [SerializeField] private PegManager pegManager;
         [SerializeField] private BattleManager battleManager;
         [SerializeField] private UIManager uiManager;
 
@@ -21,6 +23,8 @@ namespace Pawchinko
         public BallManager BallManager => ballManager;
         public ScoringManager ScoringManager => scoringManager;
         public EnergyManager EnergyManager => energyManager;
+        public AbilityManager AbilityManager => abilityManager;
+        public PegManager PegManager => pegManager;
         public BattleManager BattleManager => battleManager;
         public UIManager UIManager => uiManager;
 
@@ -54,6 +58,17 @@ namespace Pawchinko
 
             if (energyManager != null) energyManager.Initialize(eventSystem);
             else Debug.LogError("[BattleSceneRoot] EnergyManager not assigned!");
+
+            // AbilityManager has no scene dependencies; create one on demand so the battle scene
+            // doesn't need a manual wiring step. Must be initialized before StartBattle so it
+            // catches Round 1's RoundStartedEvent (AP refill + clear).
+            if (abilityManager == null) abilityManager = gameObject.AddComponent<AbilityManager>();
+            abilityManager.Initialize(eventSystem);
+
+            // PegManager applies peg hide/restore around drops; same on-demand creation as above.
+            // Initialized before StartBattle so it catches Round 1's RoundStartedEvent (restore).
+            if (pegManager == null) pegManager = gameObject.AddComponent<PegManager>();
+            pegManager.Initialize(eventSystem);
 
             if (battleManager != null) battleManager.Initialize(eventSystem);
             else Debug.LogError("[BattleSceneRoot] BattleManager not assigned!");

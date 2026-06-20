@@ -101,6 +101,9 @@ namespace Pawchinko
         [Header("Battle Tuning")]
         [SerializeField] private int maxLevel = 50;
         [SerializeField] private int baseEnergy = 10;
+        [Tooltip("Action Points this Pom has available for abilities. Refills to this max at the start of every round.")]
+        [Min(0)]
+        [SerializeField] private int baseAP = 3;
         [SerializeField] private PomBaseStats baseStats = new();
 
         [Header("Ball Growth (level -> balls per drop)")]
@@ -125,6 +128,7 @@ namespace Pawchinko
 
         public int MaxLevel => maxLevel;
         public int BaseEnergy => baseEnergy;
+        public int BaseAP => baseAP;
         public PomBaseStats BaseStats => baseStats;
 
         public BallGrowthStyle BallGrowthStyle => ballGrowthStyle;
@@ -136,9 +140,9 @@ namespace Pawchinko
 
     /// <summary>
     /// Runtime instance of a Pom: a reference to an immutable <see cref="PomData"/> asset plus
-    /// the mutable per-instance state (level, experience, the two learned ability slots). Pure
-    /// data; team rosters hold these. All operations live in helper classes (<see
-    /// cref="PomFactory"/>, <see cref="PomBallCount"/>, <see cref="PomAbilityLearning"/>).
+    /// the mutable per-instance state (level, experience, current Action Points, the two learned
+    /// ability slots). Pure data; team rosters hold these. All operations live in helper classes
+    /// (<see cref="PomFactory"/>, <see cref="PomBallCount"/>, <see cref="PomAbilityLearning"/>).
     /// </summary>
     [Preserve]
     [Serializable]
@@ -149,6 +153,12 @@ namespace Pawchinko
         public PomData data;
         public int level = 1;
         public int experience;
+
+        /// <summary>Action Point pool for abilities. <see cref="currentAP"/> refills to
+        /// <see cref="maxAP"/> at the start of every round (AbilityManager).</summary>
+        public int maxAP;
+        public int currentAP;
+
         public PomAbilityData[] learnedAbilities = new PomAbilityData[LearnedAbilitySlotCount];
     }
 }
