@@ -353,6 +353,7 @@ namespace Pawchinko
             if (!_pickerOpen) return;
             _abilitySelection = (_abilitySelection + 1) % AbilityPickerView.OptionCount;
             if (playerAbilityPicker != null) playerAbilityPicker.Refresh(GetFocusedActivePom(), _abilitySelection);
+            PreviewHighlightedAbility();
         }
 
         private void HandleNavigateInput()
@@ -408,6 +409,7 @@ namespace Pawchinko
             {
                 Debug.Log($"[BattleHud] Picker nav {previous} -> {_abilitySelection}.");
                 if (playerAbilityPicker != null) playerAbilityPicker.Refresh(GetFocusedActivePom(), _abilitySelection);
+                PreviewHighlightedAbility();
             }
         }
 
@@ -431,6 +433,7 @@ namespace Pawchinko
             _abilitySelection = AbilityPickerView.NoneIndex;
             _pickerOpen = true;
             playerAbilityPicker.Show(pom, _abilitySelection);
+            PreviewHighlightedAbility();
         }
 
         private void LockAbilitySelection()
@@ -440,6 +443,7 @@ namespace Pawchinko
             // selection. Focus remains on the originating active card so the player keeps navigating.
             _pickerOpen = false;
             if (playerAbilityPicker != null) playerAbilityPicker.Hide();
+            ClearAbilityPreview();
 
             int activeIndex = _focusIndex; // active card index (0..MaxActivePoms-1) while picker open
             var am = GameManager.Instance != null ? GameManager.Instance.AbilityManager : null;
@@ -478,7 +482,32 @@ namespace Pawchinko
             // is left untouched so the previously locked choice persists.
             _pickerOpen = false;
             if (playerAbilityPicker != null) playerAbilityPicker.Hide();
+            ClearAbilityPreview();
             Debug.Log("[BattleHud] Ability picker cancelled (focus stays on card).");
+        }
+
+        /// <summary>
+        /// Previews the currently highlighted ability's affected pegs on the board (type-colored
+        /// wash) while the picker is open. NONE highlighted clears the preview.
+        /// </summary>
+        private void PreviewHighlightedAbility()
+        {
+            var pm = GameManager.Instance != null ? GameManager.Instance.PegManager : null;
+            if (pm == null) return;
+
+            var pom = GetFocusedActivePom();
+            PomAbilityData ability = null;
+            if (_abilitySelection == AbilityPickerView.Slot1Index) ability = LearnedAbilityAt(pom, 0);
+            else if (_abilitySelection == AbilityPickerView.Slot2Index) ability = LearnedAbilityAt(pom, 1);
+
+            pm.PreviewAbility(ability, pom, Side.Player);
+        }
+
+        /// <summary>Clears any planning peg preview (called when the picker closes).</summary>
+        private void ClearAbilityPreview()
+        {
+            var pm = GameManager.Instance != null ? GameManager.Instance.PegManager : null;
+            if (pm != null) pm.PreviewAbility(null, null, Side.Player);
         }
 
         private PomInstance GetFocusedActivePom()

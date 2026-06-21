@@ -22,13 +22,13 @@ MonoBehaviour:
   boardTarget: 0
   effects:
   - kind: 5
-    mode: 1
-    amount: 2
-    chance: 0.503
+    mode: 0
+    amount: 1.1
+    chance: 0.5
     typeFilter:
-      any: 1
+      any: 0
       type: 0
-    targetIndices: 03000000
+    targetIndices: 060000000a0000000b00000013000000140000001c0000001d00000021000000
     typeExclusive: 0
     forceSpawn: 0
     pegAction: 0

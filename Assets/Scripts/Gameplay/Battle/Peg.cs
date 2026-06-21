@@ -26,9 +26,14 @@ namespace Pawchinko
         public int Row => row;
         public int Col => col;
         public bool IsHidden { get; private set; }
+        public bool IsTinted { get; private set; }
+
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
 
         private Renderer _renderer;
         private Collider _collider;
+        private MaterialPropertyBlock _mpb;
         private bool _cached;
 
         private void Awake() => CacheComponents();
@@ -61,6 +66,39 @@ namespace Pawchinko
             IsHidden = hidden;
             if (_renderer != null) _renderer.enabled = !hidden;
             if (_collider != null) _collider.enabled = !hidden;
+        }
+
+        /// <summary>
+        /// Tints the peg in an ability's type color so the player can see which pegs it touches.
+        /// <paramref name="active"/> false is the planning <b>preview</b> (a dim color wash);
+        /// <paramref name="active"/> true is the <b>applied</b> state once the round's abilities
+        /// resolve - the same hue but full-bright so the peg visibly deepens the second time. Pass
+        /// <paramref name="tinted"/> false to restore the original look. Done with a
+        /// MaterialPropertyBlock so the shared peg material is never modified, and it never touches
+        /// the transform (the pin pivot sits at the board origin, so scaling would move the peg).
+        /// </summary>
+        public void SetTint(bool tinted, Color color, bool active)
+        {
+            CacheComponents();
+            IsTinted = tinted;
+
+            if (_renderer == null) return;
+            _mpb ??= new MaterialPropertyBlock();
+            _renderer.GetPropertyBlock(_mpb);
+            if (tinted)
+            {
+                // Keep the exact type hue; only the brightness differs preview (dim) vs applied
+                // (full), so the battle state reads as the same color, just stronger.
+                Color shown = active ? color : color * 0.5f;
+                shown.a = 1f;
+                _mpb.SetColor(BaseColorId, shown);
+                _mpb.SetColor(ColorId, shown);
+            }
+            else
+            {
+                _mpb.Clear();
+            }
+            _renderer.SetPropertyBlock(_mpb);
         }
     }
 }

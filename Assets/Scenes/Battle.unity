@@ -12622,6 +12622,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Pawchinko::Pawchinko.AbilityPickerView
   root: {fileID: 1498303197}
+  apLabel: {fileID: 0}
   noneLabel: {fileID: 1133537217}
   slot1Label: {fileID: 184646535}
   slot2Label: {fileID: 1182920855}
@@ -12682,6 +12683,8 @@ MonoBehaviour:
   ballManager: {fileID: 2113106118}
   scoringManager: {fileID: 113714383}
   energyManager: {fileID: 315258905}
+  abilityManager: {fileID: 0}
+  pegManager: {fileID: 0}
   battleManager: {fileID: 925911481}
   uiManager: {fileID: 547488178}
 --- !u!114 &1518403995 stripped
@@ -17511,6 +17514,10 @@ PrefabInstance:
     - target: {fileID: 6449489147397049079, guid: 98eb5c72f218d894ea4de9608c105b1d, type: 3}
       propertyPath: m_LocalPosition.x
       value: -1.1800002
+      objectReference: {fileID: 0}
+    - target: {fileID: 7930139928522316482, guid: 98eb5c72f218d894ea4de9608c105b1d, type: 3}
+      propertyPath: side
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8255010398609916615, guid: 98eb5c72f218d894ea4de9608c105b1d, type: 3}
       propertyPath: m_LocalPosition.x
